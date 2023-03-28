@@ -5,7 +5,7 @@ class QuestionInputAnswer(BaseModel):
     __tablename__ = 'questions_input_answer'
     correct_answer = Column(String(), nullable=False)
     k_misspell = Column(Float(), nullable=False)
-    question_id = Column(Integer(), ForeignKey('questions.id'))
+    question_id = Column(Uuid(), ForeignKey('questions.id'))
     question = relationship('Question', backref='question_input_answer', uselist=False)
 
     __table_args__ = (

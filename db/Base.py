@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass
 import datetime
 import random
@@ -13,7 +14,6 @@ Base = declarative_base()
 class BaseModel(Base):
     __abstract__ = True
 
-    id = Column(Integer, nullable=False, unique=True, primary_key=True, autoincrement=True,
-                default="CAST(EXTRACT(EPOCH FROM NOW()) * 1000 AS INT)")
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     created_at = Column(TIMESTAMP, nullable=False, default=datetime.datetime.now())
     updated_at = Column(TIMESTAMP, nullable=False, default=datetime.datetime.now(), onupdate=datetime.datetime.now())

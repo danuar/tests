@@ -5,8 +5,8 @@ class Question(BaseModel):
     __tablename__ = 'questions'
     name = Column(String(), nullable=False)
     complition_time = Column(Time(), nullable=True)
-    weight = Column(Integer(), default=1)
-    test_id = Column(Integer(), ForeignKey('tests.id'))
+    weight = Column(Integer(), server_default='1')
+    test_id = Column(Uuid(), ForeignKey('tests.id'))
     test = relationship("Test", backref="questions")
 
     __table_args__ = (

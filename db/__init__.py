@@ -6,3 +6,4 @@ from db.ResultTest import *
 from db.Test import *
 from db.Theory import *
 from db.User import *
+from db.Base import *

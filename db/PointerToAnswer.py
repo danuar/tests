@@ -3,9 +3,9 @@ from db.Base import *
 
 class PointerToAnswer(BaseModel):
     __tablename__ = 'pointers_to_answer'
-    chapter_id = Column(Integer(), ForeignKey('chapters_theory.id'))
+    chapter_id = Column(Uuid(), ForeignKey('chapters_theory.id'))
     chapter = relationship('ChapterTheory', backref="pointers_to_answer")
-    question_id = Column(Integer(), ForeignKey('questions.id'))
+    question_id = Column(Uuid(), ForeignKey('questions.id'))
     question = relationship("Question", backref="pointer_to_answer", uselist=False)
     start = Column(Integer(), nullable=False)
     end = Column(Integer(), nullable=False)
