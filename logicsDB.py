@@ -1,0 +1,119 @@
+import datetime
+import logging
+import os.path
+from typing import Optional, List, Tuple, Any
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
+from db import *
+import uuid
+
+import config
+
+
+class Context:
+    instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls.instance is None:
+            return super().__new__(cls)
+        return cls.instance
+
+    def __init__(self):
+        cls = self.__class__
+        if cls.instance is not None:
+            return
+        cls.instance = self
+        engine_psql = create_engine(
+            f'postgresql://{config.DATABASE_USER}:{config.DATABASE_PASSWORD}'
+            f'@{config.DATABASE_HOST}:{config.DATABASE_PORT}/{config.DATABASE_NAME}',
+            pool_pre_ping=True,
+            echo=True
+        )
+        self.session = Session(bind=engine_psql)
+        self.session.expire_on_commit = False
+
+
+class UserLogic:
+    name_file_with_id = "user_id.txt"
+    user = None
+
+    @classmethod
+    def setup_user(cls, ident: Optional[uuid.UUID] = None) -> None:
+        if cls.user is not None:
+            return
+        c = Context()
+        if ident is None:
+            cls.user = User()
+            c.session.add(cls.user)
+            c.session.commit()
+            logging.info(f"Создан новый пользователь: {cls.user.id}")
+        else:
+            cls.user = c.session.query(User).get(ident)
+            logging.info(f"Найден пользователь: {cls.user.id}")
+
+        if cls.user is None:
+            c.session.add(User(id=ident))
+
+    @classmethod
+    def setup_user_from_file(cls):
+        try:
+            with open(cls.name_file_with_id, 'r') as f:
+                cls.setup_user(uuid.UUID(f.readline()))
+        except (FileNotFoundError, ValueError):
+            cls.setup_user()
+            with open(cls.name_file_with_id, 'w') as f:
+                f.write(cls.user.id.__str__())
+
+
+class TheoryLogic:
+    path_to_save_chapters = "../chapters/"
+
+    def create(self, name_theory: str, study_time_minuts: int, names_chapters: List[str], texts_chapters):
+        session = Context().session
+        logging.info(f"Создание теории: {name_theory}")
+        theory = Theory(name=name_theory)
+        if study_time_minuts > 0:
+            theory.study_time = datetime.time(minute=study_time_minuts)
+        session.add(theory)
+        session.commit()
+        self.add_chapters(theory, names_chapters, texts_chapters)
+
+    def add_chapters(self, theory: Theory, names_chapters: List[str], texts_chapters):
+        logging.info(f"Добавление {len(names_chapters)} разделов в теорию {theory.name}")
+        start = len(theory.chapters)
+        for names_chapter in names_chapters:
+            theory.chapters.append(ChapterTheory(name=names_chapter))
+        Context().session.commit()
+
+        for i in range(start, len(theory.chapters)):
+            chapter = theory.chapters[i]
+            with open(f"{self.path_to_save_chapters}{chapter.id}.html", "x") as f:
+                f.write(texts_chapters[i - start])
+            logging.info(f"Произошла запись в файл: '{chapter.id}.html' раздела: {chapter.name}")
+
+    def get_all(self):
+        return Context().session.query(Theory).all()
+
+    def load_chapters_from_theory(self, theory) -> tuple[list[str], list[str]]:
+        names = []
+        chapters = []
+        for chapter in theory.chapters:
+            try:
+                with open(f"{self.path_to_save_chapters}{chapter.id}.html", "r") as f:
+                    chapters.append(f.read())
+                names.append(chapter.name)
+            except FileNotFoundError:
+                logging.warning(f"При попытке получить раздел теории {chapter.name}, не был найден файл"
+                                f" {self.path_to_save_chapters}{chapter.id}.html")
+        return names, chapters
+
+
+class TestLogic:
+    def get(self, ident: uuid.UUID) -> Optional[Test]:
+        try:
+            return Context().session.query(Test).get(ident)
+        except:
+            logging.info(f"Не получилось найти тест по id {ident}")
+            return None
+
