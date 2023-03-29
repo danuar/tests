@@ -10,7 +10,6 @@ from sqlalchemy import *
 Base = declarative_base()
 
 
-@dataclass
 class BaseModel(Base):
     __abstract__ = True
 

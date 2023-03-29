@@ -8,4 +8,4 @@ class ChapterTheory(BaseModel):
     __tablename__ = "chapters_theory"
     name = Column(VARCHAR(64))
     theory_id = Column(Uuid(), ForeignKey('theories.id'))
-    theory = relationship("Theory", backref='chapters')
+    theory = relationship("Theory", backref='chapters', lazy=False)
