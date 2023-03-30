@@ -117,3 +117,9 @@ class TestLogic:
             logging.info(f"Не получилось найти тест по id {ident}")
             return None
 
+    def create(self, test: Test):
+        Context().session.add(test)
+        Context().session.commit()
+
+    def all_from_user(self) -> list[Test]:
+        return Context().session.query(Test).filter(Test.creator == UserLogic.user).all()

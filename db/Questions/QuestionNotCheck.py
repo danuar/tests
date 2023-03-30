@@ -1,7 +1,9 @@
+from sqlalchemy.orm import backref
+
 from db.Base import *
 
 
-class QuestionNotChek(BaseModel):
+class QuestionNotCheck(BaseModel):
     __tablename__ = 'questions_not_check'
     question_id = Column(Uuid(), ForeignKey('questions.id'))
-    question = relationship('Question', backref='question_not_check', uselist=False)
+    question = relationship('Question', backref=backref('question_not_check', uselist=False), uselist=False)
