@@ -256,7 +256,8 @@ class CreateTestWidget(QWidget):
     def to_cancel(self):
         res = show_msg_question("Отменить создание теста", "Отменить создание теста? Все данные будут потеряны.")
         if res:
-            self.theory_widget.close()
+            if self.theory_widget:
+                self.theory_widget.close()
             self.close()
 
     def to_remove_question(self):
@@ -318,19 +319,33 @@ class RunTestWidget(QDialog):
 
     def _create_question_widget(self, index_question):
         question = self.test.questions[index_question]
-        hl = QHBoxLayout()
-        hl.addWidget(QLabel(f"Вопрос {index_question + 1} из {len(self.test.questions)}"))
-        hl.addWidget(QLabel(f"Оставшиеся время: {question.complition_time}"))
+        header = QFrame(self)
+        header.setStyleSheet(".QFrame { "
+                             "background: qlineargradient(x1:0, y1:1, x2:1, y2:1, stop:0 #5400c7, stop:1 #9c0ec4); } "
+                             "QLabel { color: #ffffff; }"
+                             ".QFrame:hover { background: qlineargradient(x1:0, y1:1, x2:1, y2:1, stop:0 #5400c7, stop:0.5 #c800ff, stop:1 #9c0ec4); }")
+        hl = QHBoxLayout(header)
+        hl.setContentsMargins(2, 2, 2, 2)
+        hl.addWidget(QLabel(f"Вопрос {index_question + 1} из {len(self.test.questions)}", self))
+        hl.addWidget(QLabel(f"Оставшиеся время: {question.complition_time}", self), alignment=Qt.AlignRight)
 
-        widget = QWidget()
+        widget = QWidget(self)
 
         btn_to_next = QPushButton("Следующий вопрос")
         hl1 = QHBoxLayout()
+        hl1.setContentsMargins(8, 8, 8, 8)
         hl1.addWidget(btn_to_next)
 
-        layout = QVBoxLayout(widget)
-        layout.addLayout(hl)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(header, alignment=Qt.AlignTop)
+        layout.addWidget(widget)
         layout.addLayout(hl1)
+
+        if self.stacked_widget.count() == 3:
+            self.stacked_widget.removeWidget(self.stacked_widget.widget(2))
+        self.stacked_widget.addWidget(self._create_widget(layout))
+        self.stacked_widget.setCurrentIndex(2)
 
     def _create_widget(self, layout: QLayout) -> QWidget:
         r = QWidget(self)
@@ -345,7 +360,7 @@ class RunTestWidget(QDialog):
 
     def on_running_test(self):
         if show_msg_question("Начать тест", "Вы уверены что хотите начать тест?"):
-            self.stacked_widget.setCurrentIndex(2)
+            self._create_question_widget(0)
 
 
 class MainWindow(QWidget):
@@ -480,6 +495,8 @@ class MainWindow(QWidget):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+    with open("Toolery.qss", "r") as f:
+        app.setStyleSheet(f.read())
     w = MainWindow()
     w.show()
     sys.exit(app.exec_())

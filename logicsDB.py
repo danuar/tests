@@ -28,7 +28,6 @@ class Context:
             f'postgresql://{config.DATABASE_USER}:{config.DATABASE_PASSWORD}'
             f'@{config.DATABASE_HOST}:{config.DATABASE_PORT}/{config.DATABASE_NAME}',
             pool_pre_ping=True,
-            echo=True
         )
         self.session = Session(bind=engine_psql)
         self.session.expire_on_commit = False
