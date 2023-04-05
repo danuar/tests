@@ -1,3 +1,5 @@
+from sqlalchemy.orm import backref
+
 from db.Base import *
 
 answer_user_by_answer_test = \
@@ -12,16 +14,16 @@ class AnswerTest(BaseModel):
     text = Column(String(), nullable=False)
     correct = Column(Boolean(), nullable=False)
     question_choice_id = Column(Uuid(), ForeignKey("questions_choice.id"))
-    question_choice = relationship("QuestionChoise", backref='answers')
+    question_choice = relationship("QuestionChoise", backref='answers', lazy=False)
     answers = relationship("Answer", secondary=answer_user_by_answer_test, backref='answers_test')
 
 
 class Answer(BaseModel):
     __tablename__ = 'answers'
     mark = Column(Integer(), nullable=True)
-    text_answer = Column(Integer(), nullable=True)
+    text_answer = Column(String(), nullable=True)
     complition_time = Column(Time(), nullable=False)
     result_test_id = Column(Uuid(), ForeignKey('results_tests.id'))
-    result_test = relationship('ResultTest', backref='answers')
+    result_test = relationship('ResultTest', backref=backref('answers', lazy=False))
     question_id = Column(Uuid(), ForeignKey('questions.id'))
     question = relationship("Question", backref='answers')

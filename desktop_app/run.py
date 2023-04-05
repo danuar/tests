@@ -1,23 +1,32 @@
-import re
+import difflib
+import locale
+import operator
+import os.path
 import sys
-from typing import Optional, List
+import time
+from functools import reduce
+from typing import List
 
-from PyQt5 import QtCore
-from PyQt5.QtCore import Qt
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtGui import QTextCursor, QColor, QTextCharFormat
+from PyQt5 import QtCore, QtGui
+from PyQt5.QtChart import QChartView, QChart, QPieSeries, QPercentBarSeries, QBarCategoryAxis, QBarSet
+from PyQt5.QtCore import Qt, QTimer, QModelIndex
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QPainter, QPen, QFont
 from PyQt5.QtWidgets import *
 
-from MessageBox import *
+from desktop_app.TheoryWidgets import *
+from desktop_app.ViewQuestion import *
 from db import *
-from logicsDB import UserLogic, TheoryLogic, TestLogic
-from TheoryWidgets import *
-from ViewQuestion import *
+from logicsDB import UserLogic, TestLogic, ResultTestLogic
+
+
+def sum_time(times: list[datetime.time]):
+    return reduce(operator.add, (datetime.timedelta(hours=i.hour, minutes=i.minute, seconds=i.second) for i in times))
 
 
 class CreateTestWidget(QWidget):
     def __init__(self, theories: List[Theory], parent=None):
         super().__init__(parent)
+        self.test: Optional[Test] = None
         self.question_vlayouts = []
         self.question_complition_times = []
         self.question_weights = []
@@ -31,6 +40,8 @@ class CreateTestWidget(QWidget):
         self.setMinimumSize(int(400 * 16 / 9), 400)
 
         self.name_box = QLineEdit(self)
+        self.check_box_shuffle = QCheckBox(self)
+        self.check_box_show_answers = QCheckBox()
         self.completion_time_box = QSpinBox()
         self.completion_time_box.setMaximum(10000000)
         self.completion_time_box.setToolTip(
@@ -47,6 +58,8 @@ class CreateTestWidget(QWidget):
         form.addRow("Время выполнения (необязательно):", self.completion_time_box)
         form.addRow("Количество попыток:", self.count_attempts_box)
         form.addRow("Теория для теста:", self.theory)
+        form.addRow("Перемешивать ли вопросы:", self.check_box_shuffle)
+        form.addRow("Показывать ли ответы после прохождения:", self.check_box_show_answers)
 
         btn_save = QPushButton("Далее")
         btn_save.clicked.connect(self.to_next)
@@ -210,21 +223,35 @@ class CreateTestWidget(QWidget):
                              f"Будет создан тест содержащий {len(self.question_names)} вопроса(ов)."
                              f"\nВремя прохождения составит: {completion_time} сек. Продолжить?"):
             self.insert_test_in_db()
-            show_msg_information("Создан тест", "Тест успешно создан")
+            msg = QMessageBox()
+            msg.setWindowTitle("Тест создан")
+            msg.setIcon(QMessageBox.Icon.Information)
+            msg.setText(f"Тест успешно создан. Id теста: {self.test.id}")
+            btn_copy = QPushButton("Скопировать id в буфер обмена")
+            btn_copy.clicked.connect(self.copy_test_id)
+            msg.addButton(btn_copy, QMessageBox.ButtonRole.NoRole)
+            msg.addButton("Выйти", QMessageBox.ButtonRole.YesRole)
+            msg.exec_()
             self.theory_widget.close()
             self.close()
 
+    def copy_test_id(self):
+        if self.test is not None:
+            QtGui.QGuiApplication.clipboard().setText(str(self.test.id))
+
     def insert_test_in_db(self):
-        test = Test(
+        self.test = Test(
             name=self.name_box.text(),
             creator=UserLogic.user,
             theory=self.theory_widget.theory,
+            shuffle=self.check_box_shuffle.isChecked(),
+            show_answer=self.check_box_show_answers.isChecked(),
         )
         if self.completion_time_box.value():
             s = self.completion_time_box.value()
-            test.completion_time = datetime.time(hour=s // 3600, minute=s // 60, second=s % 60)
+            self.test.completion_time = datetime.time(hour=s // 3600, minute=s // 60, second=s % 60)
         if self.count_attempts_box.value():
-            test.count_attempts = self.count_attempts_box.value()
+            self.test.count_attempts = self.count_attempts_box.value()
         for i in range(self.stacked_layout.count() - 1):
             question = Question()
             question.name = self.question_names[i].toPlainText()
@@ -235,13 +262,13 @@ class CreateTestWidget(QWidget):
                 start=cursor.selectionStart(),
                 end=cursor.selectionEnd()
             )
-            if not test.completion_time:
+            if not self.test.completion_time:
                 s = self.question_complition_times[i].value()
                 question.complition_time = datetime.time(hour=s // 3600, minute=s // 60, second=s % 60)
             ViewQuestion.set_order_tests(self._get_type_layout_from_index(i)) \
                 .create_specify_entity(self.question_types[i].currentIndex(), question)
-            test.questions.append(question)
-        TestLogic().create(test)
+            self.test.questions.append(question)
+        TestLogic().create(self.test)
 
     def update_cursor(self):
         curr = self.stacked_layout.currentIndex() - 1
@@ -281,14 +308,25 @@ class CreateTestWidget(QWidget):
 class RunTestWidget(QDialog):
     def __init__(self, test: Test, parent: QWidget = None):
         super().__init__(parent)
+        self.is_need_open_result = False
+        self.timer_test: Optional[QTimer] = None
+        self.start_test_time = None
+        self.is_running_test = False
+        self.start_run_time = None
+        self.answers_check_box: Optional[list[QCheckBox]] = None
+        self.input_answer: Optional[QLineEdit] = None
         self.test = test
+        if test.shuffle:
+            random.shuffle(self.test.questions)
+        self._question_index = -1
+        self.result_test = ResultTest(test=test, user=UserLogic.user)
 
         self.setWindowTitle(f'Пройти тест: "{test.name}"')
 
         txt = ""
         if test.theory.study_time:
             txt = f". Примерное время изучения {test.theory.study_time.minute + test.theory.study_time.hour} мин."
-        btn_get_theory = QPushButton(f"Изучить теорию {test.theory.name}" + txt)
+        btn_get_theory = QPushButton(f"Изучить теорию {test.theory.name}{txt}")
         btn_get_theory.clicked.connect(self.on_get_theory_clicked)
         btn_get_theory.setMaximumSize(600, 100)
         btn_get_theory.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
@@ -297,9 +335,25 @@ class RunTestWidget(QDialog):
         btn_running_test.clicked.connect(self.on_running_test)
         btn_running_test.setMaximumSize(600, 100)
         btn_running_test.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        f = lambda x: x.hour * 3600 + x.minute * 60 + x.second
-        t = f(test.completion_time) if test.completion_time else sum(f(i.complition_time) for i in test.questions)
-        label_info = QLabel(f"Тест: {test.name}\nВопросов: {len(test.questions)}\nВремя прохождения: {t} сек.")
+
+        t = self._get_seconds(test.completion_time) if test.completion_time \
+            else sum(self._get_seconds(i.complition_time) for i in test.questions)
+        self.end_run_time = self.completion_time = t
+        txt = "Неограниченное количество попыток"
+        count_attempts = TestLogic().get_count_attempts(test)
+        if count_attempts:
+            if count_attempts == 0:
+                btn_running_test.setDisabled(True)
+            if count_attempts % 10 == 1 and count_attempts != 11:
+                attemp = 'попытка'
+            if 2 <= count_attempts % 10 <= 4 and not 12 <= count_attempts <= 14:
+                attemp = 'попытки'
+            else:
+                attemp = 'попыток'
+            if count_attempts > 0:
+                txt = f"Осталось {count_attempts} {attemp}"
+
+        label_info = QLabel(f"Тест: {test.name}\nВопросов: {len(test.questions)}\nВремя прохождения: {t} сек.\n{txt}")
         label_info.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         vlayout = QVBoxLayout()
         vlayout.setAlignment(Qt.AlignCenter)
@@ -317,24 +371,64 @@ class RunTestWidget(QDialog):
         self.stacked_widget.addWidget(self._create_widget(vlayout))
         self.stacked_widget.addWidget(self._create_widget(vl))
 
+    @staticmethod
+    def _get_seconds(current_time: datetime.time):
+        return current_time.hour * 3600 + current_time.minute * 60 + current_time.second
+
     def _create_question_widget(self, index_question):
+        self.start_run_time = time.time()
         question = self.test.questions[index_question]
-        header = QFrame(self)
-        header.setStyleSheet(".QFrame { "
-                             "background: qlineargradient(x1:0, y1:1, x2:1, y2:1, stop:0 #5400c7, stop:1 #9c0ec4); } "
-                             "QLabel { color: #ffffff; }"
-                             ".QFrame:hover { background: qlineargradient(x1:0, y1:1, x2:1, y2:1, stop:0 #5400c7, stop:0.5 #c800ff, stop:1 #9c0ec4); }")
+        header = QFrame(self, objectName="menuTest")
         hl = QHBoxLayout(header)
         hl.setContentsMargins(2, 2, 2, 2)
-        hl.addWidget(QLabel(f"Вопрос {index_question + 1} из {len(self.test.questions)}", self))
-        hl.addWidget(QLabel(f"Оставшиеся время: {question.complition_time}", self), alignment=Qt.AlignRight)
+        hl.addWidget(QLabel(f"Вопрос {index_question + 1} из {len(self.test.questions)}   "
+                            f"Вес вопроса: {question.weight}", self))
+        self.label_end_time = QLabel(self)
+        self._change_complition_time()
+        if not self.test.completion_time:
+            self._create_timer(self._get_seconds(question.complition_time) * 1000,
+                               self._change_complition_time,
+                               self.to_next_question)
+        hl.addWidget(self.label_end_time, alignment=Qt.AlignRight)
 
         widget = QWidget(self)
+        question_label = QTextEdit(question.name)
+        question_label.setObjectName("question")
+        question_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        question_label.setReadOnly(True)
+        form = QFormLayout()
+        form.addRow("Вопрос:", question_label)
 
-        btn_to_next = QPushButton("Следующий вопрос")
+        main_layout = QVBoxLayout(widget)
+        main_layout.addLayout(form)
+        main_layout.addStretch(1)
+        self.answers_check_box = None
+        self.input_answer = None
+        if question.question_choice:
+            self.answers_check_box = []
+            main_layout.addWidget(QLabel("Варианты ответа:"))
+            for answer in question.question_choice.answers:
+                self.answers_check_box.append(QCheckBox(answer.text))
+                self.answers_check_box[-1].stateChanged.connect(self._on_changed_test_answer)
+                main_layout.addWidget(self.answers_check_box[-1])
+        else:
+            self.input_answer = QLineEdit(self)
+            self.input_answer.textChanged.connect(self._on_changed_input_answer)
+            form1 = QFormLayout()
+            txt = "Проверяется автоматически"
+            if question.question_not_check:
+                txt = "Проверяется вручную"
+            form1.addRow(f"Ответ ({txt}):", self.input_answer)
+            main_layout.addLayout(form1)
+
+        self.btn_to_next = QPushButton("Следующий вопрос")
+        if len(self.test.questions) == index_question + 1:
+            self.btn_to_next.setText("Закончить тест")
+        self.btn_to_next.clicked.connect(self.to_next_question)
+        self.btn_to_next.setDisabled(True)
         hl1 = QHBoxLayout()
         hl1.setContentsMargins(8, 8, 8, 8)
-        hl1.addWidget(btn_to_next)
+        hl1.addWidget(self.btn_to_next)
 
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -347,10 +441,109 @@ class RunTestWidget(QDialog):
         self.stacked_widget.addWidget(self._create_widget(layout))
         self.stacked_widget.setCurrentIndex(2)
 
+    def _destroy_timer(self):
+        if self.timer_test:
+            self.timer_test.disconnect()
+            self.timer_test.deleteLater()
+
+    def _create_timer(self, msec: int, update_slot, timeout_slot, msec_update=1000):
+        self._destroy_timer()
+
+        self.timer_test = QTimer(self)
+        self.timer_test.setSingleShot(True)
+
+        timer_updater = QTimer(self)
+        timer_updater.setSingleShot(False)
+        timer_updater.start(msec_update)
+        timer_updater.timeout.connect(update_slot)
+
+        self.timer_test.timeout.connect(self.timer_test.deleteLater)
+        self.timer_test.timeout.connect(timer_updater.deleteLater)
+        self.timer_test.timeout.connect(lambda: timer_updater.disconnect())
+        self.timer_test.timeout.connect(timeout_slot)
+        self.timer_test.start(msec)
+
     def _create_widget(self, layout: QLayout) -> QWidget:
         r = QWidget(self)
         r.setLayout(layout)
         return r
+
+    def _on_changed_test_answer(self):
+        self.btn_to_next.setEnabled(any(i.isChecked() for i in self.answers_check_box))
+
+    def _on_changed_input_answer(self):
+        self.btn_to_next.setEnabled(len(self.input_answer.text().rstrip()))
+
+    def _on_timeout_running_test(self):
+        self.result_test.completed_date = datetime.datetime.now()
+        self.save_question()
+        self._change_complition_time()
+        self.is_running_test = False
+        show_msg_information("Тест завершен", "К сожалению, вышло время прохождения теста. Ваш результат был сохранен.")
+        self.close()
+
+    def _change_complition_time(self):
+        if not self.is_running_test:
+            self.sender().disconnect()
+            return
+        completion_time = self.test.completion_time
+        diff = time.time() - self.start_test_time
+        if completion_time is None:
+            completion_time = self.test.questions[self._question_index].complition_time
+            diff = time.time() - self.start_run_time
+        seconds = int(round(self._get_seconds(completion_time) - diff))
+        suffix = "" if self.test.completion_time else " для вопроса"
+        res_time = datetime.time(hour=seconds // 3600, minute=(seconds // 60) % 60, second=int(seconds % 60))
+        self.label_end_time.setText(f"Оставшиеся время{suffix}: {res_time}")
+
+    def save_question(self):
+        question = self.test.questions[self._question_index]
+        sec = round(time.time() - self.start_run_time)
+        complition_time = datetime.time(hour=sec // 3600, minute=sec // 60 % 60, second=sec % 60)
+        answer = Answer(question=question, complition_time=complition_time)
+        if question.question_choice:
+            self._save_question_choice(question, answer)
+        else:
+            answer.text_answer = self.input_answer.text()
+            if question.question_input_answer:
+                ratio = question.question_input_answer.k_misspell
+                result_ratio = difflib.SequenceMatcher(None, self.input_answer.text(),
+                                                       question.question_input_answer.correct_answer, True).ratio()
+                if result_ratio > ratio:
+                    answer.mark = question.weight
+                else:
+                    answer.mark = 0
+        self.result_test.answers.append(answer)
+        ResultTestLogic().save()
+
+    def _save_question_choice(self, question: Question, answer: Answer):
+        assert question.question_choice, "Передан неправильный тип вопроса"
+        count_correct = current_count_correct = 0
+        for i, answer_test in enumerate(question.question_choice.answers):
+            if self.answers_check_box[i].isChecked():
+                answer.answers_test.append(answer_test)
+                current_count_correct = current_count_correct + (1 if answer_test.correct else -1)
+            if answer_test.correct:
+                count_correct += 1
+        if current_count_correct > 0:
+            answer.mark = current_count_correct * question.weight // count_correct
+        else:
+            answer.mark = 0
+
+    def to_next_question(self):
+        if self._question_index >= 0:
+            self.save_question()
+        self._question_index += 1
+        if len(self.test.questions) == self._question_index:
+            self.end_run_time = time.time()
+            self.result_test.completed_date = datetime.datetime.now()
+            self.is_running_test = False
+            self._change_complition_time()
+            self._destroy_timer()
+            self.is_need_open_result = show_msg_question("Тест завершен", "Тест пройден. Перейти к результатам?")
+            self.close()
+            return
+        self._create_question_widget(self._question_index)
 
     def on_get_theory_clicked(self):
         self.stacked_widget.setCurrentIndex(1)
@@ -360,13 +553,447 @@ class RunTestWidget(QDialog):
 
     def on_running_test(self):
         if show_msg_question("Начать тест", "Вы уверены что хотите начать тест?"):
-            self._create_question_widget(0)
+            self.result_test.completed_date = datetime.datetime.now()
+            ResultTestLogic().create(self.result_test)
+            self.is_running_test = True
+            self.start_test_time = self.start_run_time = time.time()
+            if self.test.completion_time:
+                self._create_timer(msec=self.completion_time * 1000,
+                                   update_slot=self._change_complition_time,
+                                   timeout_slot=self._on_timeout_running_test)
+            self.to_next_question()
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        if self.is_running_test and not show_msg_question(
+                "Тест уже запущен",
+                "Вы уже запустили тест. Если вы выйдете, произойдет завершение теста. Продолжить?"):
+            event.ignore()
+        else:
+            if self.is_running_test:
+                self.save_question()
+                self.result_test.completed_date = datetime.datetime.now()
+            event.accept()
+
+
+class ViewResultTestQuestion(QWidget):
+    def __init__(self, result_test: ResultTest, parent: QWidget = None, show_answer: bool = False):
+        super().__init__(parent)
+        self.setWindowTitle(f'Просмотр ответов на тест "{result_test.test.name}"')
+        self.result_test = result_test
+        self.theory_widget = TheoryViewWidget(self.result_test.test.theory)
+        self.theory_widget.show()
+        self.answers = result_test.answers
+        if not show_answer:
+            show_answer = result_test.test.show_answer
+
+        self.stacked_layout = QStackedLayout()
+        for answer in self.answers:
+            container = QWidget()
+            form = QFormLayout(container)
+            text_edit = QTextEdit(answer.question.name)
+            text_edit.setReadOnly(True)
+            form.addRow("Вопрос:", text_edit)
+            mark = answer.mark if answer.mark is not None else "Ответ еще не проверен"
+            form.addRow("Полученный балл:", self.create_readonly_line_edit(f"{mark}"))
+            form.addRow("Максимальный балл:", self.create_readonly_line_edit(f"{answer.question.weight}"))
+            form.addRow("Время прохождения:", self.create_readonly_line_edit(f"{answer.complition_time}"))
+            if answer.text_answer:
+                form.addRow("Полученный ответ:", self.create_readonly_line_edit(answer.text_answer))
+            if answer.question.question_input_answer and show_answer:
+                form.addRow("Правильный ответ:",
+                            self.create_readonly_line_edit(answer.question.question_input_answer.correct_answer))
+            if answer.question.question_choice:
+                for test_answer in answer.question.question_choice.answers:
+                    is_checked = test_answer in answer.answers_test
+                    correct = "Правильный ответ" if test_answer.correct else "Неправильный ответ"
+                    check_box = QCheckBox(test_answer.text)
+                    check_box.setChecked(is_checked)
+                    check_box.setDisabled(True)
+                    if show_answer:
+                        form.addRow(check_box, QLabel(correct))
+                    else:
+                        form.addRow(check_box)
+            self.stacked_layout.addWidget(container)
+
+        header = QFrame(objectName="menuTest")
+        hl = QHBoxLayout(header)
+        self.label_number_of_question = QLabel()
+        self.update_label_question()
+        hl.addWidget(self.label_number_of_question)
+
+        hlayout = QHBoxLayout()
+        self.btn_to_next = QPushButton("Следующий вопрос")
+        self.btn_to_next.clicked.connect(self.on_clicked_to_next)
+        self.btn_to_prev = QPushButton("Предыдущий вопрос")
+        self.btn_to_prev.clicked.connect(self.on_clicked_to_prev)
+        hlayout.addWidget(self.btn_to_prev)
+        hlayout.addWidget(self.btn_to_next)
+
+        vl = QVBoxLayout(self)
+        vl.addWidget(header)
+        vl.addLayout(self.stacked_layout)
+        vl.addLayout(hlayout)
+        self.index_question = 0
+
+    @property
+    def index_question(self) -> int:
+        return self.stacked_layout.currentIndex()
+
+    @index_question.setter
+    def index_question(self, value: int):
+        if 0 <= value < self.stacked_layout.count():
+            self.theory_widget.set_to_pointer(self.answers[value].question.pointer_to_answer)
+            self.stacked_layout.setCurrentIndex(value)
+            self.update_label_question()
+            self.btn_to_next.setDisabled(value + 1 == self.stacked_layout.count())
+            self.btn_to_prev.setDisabled(value == 0)
+
+    def update_label_question(self):
+        self.label_number_of_question.setText(f"Вопрос {self.index_question + 1} из {len(self.answers)}")
+
+    def on_clicked_to_next(self):
+        self.index_question += 1
+
+    def on_clicked_to_prev(self):
+        self.index_question -= 1
+
+    def create_readonly_line_edit(self, text: str):
+        result = QLineEdit(text)
+        result.setReadOnly(True)
+        return result
+
+    def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
+        self.theory_widget.close()
+        a0.accept()
+
+
+class ViewResultTest(QWidget):
+    changed_note = pyqtSignal(str)
+
+    def __init__(self, result_test: ResultTest, parent: QWidget = None):
+        super(ViewResultTest, self).__init__(parent)
+        self.result_test = result_test
+        self.is_allowed_show_answer = False
+        self.font_legends = QFont("Calibri", 11)
+        self.font_titles = QFont("Calibri", 14)
+        self.current_mark_color: Tuple[QPen, QColor] = (QPen(Qt.darkGreen, 2), Qt.green)
+        self.wrong_mark_color: Tuple[QPen, QColor] = (None, Qt.GlobalColor.darkMagenta)
+        self.not_check_mark_color: Tuple[QPen, QColor] = (None, Qt.darkGray)
+
+        self.setWindowTitle("Результат теста")
+        layout = QVBoxLayout(self)
+        current_mark = sum(i.mark for i in result_test.answers if i.mark)
+        all_mark = sum(i.question.weight for i in result_test.answers)
+        not_check_mark = sum(i.question.weight for i in result_test.answers if i.mark is None)
+        mark = "баллов"
+        if current_mark % 10 == 1 and current_mark != 11:
+            mark = "балл"
+        elif 2 <= current_mark % 10 <= 4 and not 12 <= current_mark <= 14:
+            mark = "балла"
+        not_check_questions = [i.question for i in result_test.answers if i.mark is None]
+        layout.addWidget(
+            QLabel(f"Набрано {current_mark} {mark} из {all_mark}. В процентах: {current_mark / all_mark * 100:.2f}%\n"
+                   f"Вопросов ожидающих проверки: {len(not_check_questions)}. "
+                   f"В баллах {sum(i.weight for i in not_check_questions)}\n"
+                   f"Общее время прохождения: {sum_time(i.complition_time for i in result_test.answers)}\n"
+                   f"Когда был пройден тест: {self.result_test.completed_date:%d %B %Y год %X}"))
+
+        form = QFormLayout()
+        self.note_line_edit = QLineEdit(self.result_test.note if self.result_test.note else "")
+        self.btn_to_save_note = QPushButton("Сохранить примечание")
+        self.btn_to_save_note.clicked.connect(self.save_note)
+        form.addRow("Примечание для создателя теста:", self.note_line_edit)
+        form.addWidget(self.btn_to_save_note)
+
+        hlayout = QHBoxLayout(self)
+        btn_view_result_question = QPushButton("Подробнее")
+        btn_view_result_question.clicked.connect(self.view_result_question)
+        hlayout.addWidget(btn_view_result_question, alignment=Qt.AlignRight)
+        hl = QHBoxLayout()
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.addWidget(self._create_pie(current_mark, not_check_mark, all_mark))
+        hl.addWidget(self._create_bar())
+        layout.addLayout(hl)
+        layout.addLayout(form)
+        layout.addLayout(hlayout)
+        self.setLayout(layout)
+        self.setMinimumSize(1000, int(1000 / 16 * 9))
+
+    def set_style(self, element, style, include_pen=True):
+        if style[0] and include_pen:
+            element.setPen(style[0])
+        if style[1]:
+            element.setBrush(style[1])
+
+    def _create_pie(self, current_mark, not_check_mark, all_mark):
+        series = QPieSeries()
+        series.append(f"Набранные баллы", current_mark)
+        series.append("Упущенные баллы", all_mark - current_mark - not_check_mark)
+        series.append("Непроверенные баллы", not_check_mark)
+
+        # adding slice
+        slice = series.slices()[0]
+        slice.setExploded(True)
+        slice.setLabelVisible(True)
+        self.set_style(slice, self.current_mark_color)
+        self.set_style(series.slices()[1], self.wrong_mark_color)
+        self.set_style(series.slices()[2], self.not_check_mark_color)
+
+        chart = QChart()
+        chart.addSeries(series)
+        chart.setAnimationOptions(QChart.SeriesAnimations)
+        chart.setTitle("Распределение баллов")
+        chart.legend().setFont(self.font_legends)
+        chart.setTitleFont(self.font_titles)
+        chart.legend().setAlignment(Qt.AlignBottom)
+
+        chartview = QChartView(chart)
+        chartview.setRenderHint(QPainter.Antialiasing)
+        return chartview
+
+    def get_marks(self, answers: list[Answer]) -> tuple[int, int, int]:
+        current_mark = sum(i.mark for i in answers if i.mark)
+        all_mark = sum(i.question.weight for i in answers)
+        not_check_mark = sum(i.question.weight for i in answers if i.mark is None)
+        return current_mark, all_mark - current_mark - not_check_mark, not_check_mark
+
+    def _create_bar(self):
+        set0 = QBarSet("Набранные баллы")
+        set1 = QBarSet("Упущенные баллы")
+        set2 = QBarSet("Непроверенные баллы")
+        self.set_style(set0, self.current_mark_color, False)
+        self.set_style(set1, self.wrong_mark_color, False)
+        self.set_style(set2, self.not_check_mark_color, False)
+
+        answers0 = [i for i in self.result_test.answers if i.question.question_choice]
+        answers1 = [i for i in self.result_test.answers if i.question.question_input_answer]
+        answers2 = [i for i in self.result_test.answers if i.question.question_not_check]
+
+        res = []
+        for i in zip(self.get_marks(answers0), self.get_marks(answers1), self.get_marks(answers2)):
+            res.append(i)
+        set0.append(res[0])
+        set1.append(res[1])
+        set2.append(res[2])
+
+        series = QPercentBarSeries()
+        series.append(set0)
+        series.append(set1)
+        series.append(set2)
+
+        chart = QChart()
+        chart.addSeries(series)
+        chart.setTitle("Баллы по разным типам вопросов")
+        chart.setAnimationOptions(QChart.SeriesAnimations)
+
+        categories = ["с вариантами ответов", "с вводимым ответом", "с ручной проверкой"]
+        axis = QBarCategoryAxis()
+        axis.append(categories)
+        chart.createDefaultAxes()
+        chart.setAxisX(axis, series)
+
+        chart.legend().setVisible(True)
+        chart.legend().setFont(self.font_legends)
+        chart.setTitleFont(self.font_titles)
+        chart.legend().setAlignment(Qt.AlignBottom)
+
+        chart_view = QChartView(chart)
+        chart_view.setRenderHint(QPainter.Antialiasing)
+        return chart_view
+
+    def allow_show_answer(self, value: bool):
+        self.is_allowed_show_answer = value
+
+    def view_result_question(self):
+        self.current_widget = ViewResultTestQuestion(self.result_test, show_answer=self.is_allowed_show_answer)
+        self.current_widget.show()
+
+    def save_note(self):
+        if self.result_test.note != self.note_line_edit.text():
+            self.result_test.note = self.note_line_edit.text()
+            self.changed_note.emit(self.result_test.note)
+            ResultTestLogic().save()
+
+
+class ViewResultsTests(QTableWidget):
+    def __init__(self, view_created_tests: bool, parent: QWidget = None):
+        super().__init__(parent)
+        self.verify_widget = None
+        self.results_tests = []
+        self.current_test_widget = None
+        self.view_created_tests = view_created_tests
+        self.setMinimumWidth(600)
+
+        if view_created_tests:
+            self.setWindowTitle("Результаты прохождения созданных тестов")
+        else:
+            self.setWindowTitle("Результаты тестов")
+
+        self.verticalHeader().sectionClicked.connect(self.open_result_test)
+        headers = [
+            "Номер",
+            "Дата прохождения",
+            "Тест",
+            "Балл",
+            "Процент выполнения",
+            "Время прохождения",
+            "Примечание",
+            "Ручная проверка",
+        ]
+        self.setColumnCount(len(headers))
+        self.setHorizontalHeaderLabels(headers)
+        self.setSortingEnabled(True)
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.setColumnHidden(0, True)
+        self.update_data()
+
+    def update_data(self):
+        self.setRowCount(0)
+        if self.view_created_tests:
+            self.results_tests = list(ResultTestLogic().get_all_created())
+        else:
+            self.results_tests = list(ResultTestLogic().get_all_completed())
+        for row, result_test in enumerate(self.results_tests):
+            self.insertRow(row)
+            self.setItem(row, 0, QTableWidgetItem(f"{row}"))
+            sum_mark = sum([i.mark for i in result_test.answers if i.mark is not None])
+            self.setItem(row, 1, QTableWidgetItem(result_test.completed_date.strftime("%c")))
+            self.setItem(row, 2, QTableWidgetItem(result_test.test.name))
+
+            item = QTableWidgetItem()
+            item.setData(Qt.EditRole, sum_mark)
+            self.setItem(row, 3, item)
+
+            item = QTableWidgetItem()
+            item.setData(Qt.EditRole, sum_mark / sum([i.weight for i in result_test.test.questions]))
+            item.setText(f"{item.data(Qt.EditRole) * 100:.2f}%")
+            self.setItem(row, 4, item)
+
+            self.setItem(row, 5, QTableWidgetItem(f"{sum_time([i.complition_time for i in result_test.answers])}"))
+            self.setItem(row, 6, QTableWidgetItem(result_test.note))
+
+            if len([i for i in result_test.answers if i.mark is None]):
+                if self.view_created_tests:
+                    item = QWidget()
+                    layout = QHBoxLayout(item)
+                    layout.setContentsMargins(0, 0, 0, 0)
+                    btn = QPushButton("Проверить")
+                    btn.setStyleSheet("padding: 2px;")
+                    btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                    btn.row = row
+                    btn.clicked.connect(self.open_questions_not_check)
+                    layout.addWidget(btn)
+                    self.setItem(row, 7, QTableWidgetItem("Не проверено"))
+                    self.setCellWidget(row, 7, item)
+                else:
+                    self.setItem(row, 7, QTableWidgetItem("Не проверено"))
+            else:
+                self.setItem(row, 7, QTableWidgetItem("Проверено"))
+
+    @property
+    def result_test(self):
+        return self.results_tests[int(self.item(self.horizontalHeader().currentIndex().row(), 0).data(Qt.EditRole))]
+
+    def open_questions_not_check(self):
+        self.verify_widget = VerifyNotCheckQuestions(self.results_tests[self.sender().row])
+        self.verify_widget.show()
+        self.verify_widget.verifyed.connect(self.update_data)
+
+    def update_note(self, note: str):
+        self.item(self.horizontalHeader().currentIndex().row(), 6).setText(note)
+
+    def open_result_test(self):
+        rt = self.result_test
+        self.current_test_widget = ViewResultTest(rt)
+        if rt.user != UserLogic.user:
+            self.current_test_widget.note_line_edit.setReadOnly(True)
+        if self.view_created_tests:
+            self.current_test_widget.allow_show_answer(True)
+        self.current_test_widget.show()
+        self.current_test_widget.changed_note.connect(self.update_note)
+
+
+class VerifyNotCheckQuestions(QWidget):
+    verifyed = pyqtSignal()
+
+    def __init__(self, result_test: ResultTest, parent: QWidget = None):
+        super().__init__(parent)
+        self.setWindowTitle(f'Ручная проверка теста "{result_test.test.name}"')
+        self.result_test = result_test
+        self.answers = [a for a in result_test.answers if a.mark is None]
+        assert len(self.answers), "Должен быть хотя бы один непроверенный ответ"
+        self.index_answer = 0
+        self._create_widget()
+
+    def _create_widget(self):
+        answer = self.answers[self.index_answer]
+
+        form = QFormLayout()
+        te = QTextEdit(answer.question.name)
+        te.setReadOnly(True)
+        form.addRow("Вопрос:", te)
+        le = QLineEdit(answer.text_answer)
+        le.setReadOnly(True)
+        form.addRow("Введенный ответ:", le)
+        self.mark_spin_box = QSpinBox()
+        self.mark_spin_box.setMaximum(answer.question.weight)
+        self.mark_spin_box.setMinimum(-1)
+        self.mark_spin_box.setValue(-1)
+        form.addRow("Выставленный балл:", self.mark_spin_box)
+
+        header = QFrame(objectName="menuTest")
+        hl = QHBoxLayout(header)
+        self.label_number_of_question = QLabel()
+        self.label_weight_of_question = QLabel()
+        self.update_label()
+        hl.addWidget(self.label_number_of_question)
+        hl.addWidget(self.label_weight_of_question, alignment=Qt.AlignRight)
+
+        self.btn_verify = QPushButton("Выставить балл за вопрос")
+        self.btn_verify.clicked.connect(self.on_clicked_to_next)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(header)
+        layout.addLayout(form)
+        layout.addWidget(self.btn_verify)
+
+    def update_label(self):
+        self.label_number_of_question.setText(f"Вопрос {self.index_answer + 1} из {len(self.answers)}")
+        self.label_weight_of_question.setText(f"Максимальный балл: {self.answers[self.index_answer].question.weight}")
+
+    def update_button(self):
+        if self.index_answer + 1 == len(self.answers):
+            self.btn_verify.setText("Выставить балл за вопрос и завершить проверку")
+
+    def on_clicked_to_next(self):
+        if self.mark_spin_box.value() < 0:
+            show_msg_information("Не выставлен балл за ответ",
+                                 "Прежде чем перейти к следующему вопросу выставите балл за этот вопрос")
+            return
+        self.answers[self.index_answer].mark = self.mark_spin_box.value()
+        self.index_answer += 1
+        if self.index_answer == len(self.answers):
+            ResultTestLogic().save()
+            self.close()
+            self.verifyed.emit()
+            return
+        self._create_widget()
+        self.update_button()
 
 
 class MainWindow(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.current_test_widget = None
+        self.other_results_tests = []
+        self.my_results_tests = []
+        self.model_created_tests = QStandardItemModel()
+        self.model_my_results_tests = QStandardItemModel()
+        self.model_other_results_tests = QStandardItemModel()
+        self.created_test_widget = None
+        self.completed_test_widget = None
+        self.__new_window = None  # Для игнорирования сборщиком мусора новых окон
         self.menu_run_test: Optional[QMenu] = None
         self.tests = []
         self.create_test_widget = None
@@ -377,12 +1004,21 @@ class MainWindow(QWidget):
 
         UserLogic.setup_user_from_file()
         self.initUI()
+        self.update_data()
+        is_auto_update = False
+        if is_auto_update:
+            self.timer_update = QTimer(self)
+            self.timer_update.start(1000)
+            self.timer_update.setSingleShot(False)
+            self.timer_update.timeout.connect(self.update_data)
 
     def init_menu(self):
         self.menu = QMenuBar(self)
 
         view_result_finish_tests = QAction("Просмотреть результаты пройденных тестов", self)
+        view_result_finish_tests.triggered.connect(self.show_results_completed_tests)
         view_result_created_tests = QAction("Просмотреть результаты ваших тестов", self)
+        view_result_created_tests.triggered.connect(self.show_results_created_tests)
         menu_results = QMenu("Результаты тестов", self)
         menu_results.addAction(view_result_finish_tests)
         menu_results.addAction(view_result_created_tests)
@@ -391,16 +1027,6 @@ class MainWindow(QWidget):
         create_test.triggered.connect(self.create_test)
 
         self.menu_run_test = QMenu("Пройти тест", self)
-        self.tests.extend(TestLogic().all_from_user())
-        for test in self.tests:
-            action = QAction(test.name, self)
-            action.test = test
-            action.triggered.connect(self.run_test)
-            self.menu_run_test.addAction(action)
-        add_test = QAction("Добавить уже существующий тест", self)
-        add_test.triggered.connect(self.add_exist_test)
-        self.menu_run_test.addAction(add_test)
-
         menu_tests = QMenu("Тест", self)
         menu_tests.addAction(create_test)
         menu_tests.addMenu(self.menu_run_test)
@@ -411,7 +1037,6 @@ class MainWindow(QWidget):
         menu_add_theory = QMenu("Теоретический материал", self)
         menu_add_theory.addAction(add_theory_action)
         menu_add_theory.addMenu(self.menu_update_theories)
-        self.load_theories()
 
         self.menu.addMenu(menu_tests)
         self.menu.addMenu(menu_results)
@@ -421,22 +1046,23 @@ class MainWindow(QWidget):
         self.init_menu()
         main_splitter = QSplitter()
 
-        scroll_created_tests = QScrollArea()
-        w = QWidget()
-        vbox = QVBoxLayout(w)
-        vbox.setContentsMargins(0, 0, 0, 0)
-        vbox.setSpacing(0)
-        for i in range(20):
-            btn = QPushButton(f"Tests #{i}")
-            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            vbox.addWidget(btn)
-        scroll_created_tests.setWidgetResizable(True)
-        scroll_created_tests.setWidget(w)
-        scroll_available_tests = QScrollArea()
-        scroll_results_tests = QScrollArea()
-        main_splitter.addWidget(scroll_available_tests)
-        main_splitter.addWidget(scroll_results_tests)
-        main_splitter.addWidget(scroll_created_tests)
+        list_created_tests = QListView(objectName="listView")
+        list_created_tests.setModel(self.model_created_tests)
+        list_created_tests.clicked[QModelIndex].connect(self.on_run_test)
+
+        list_my_results_tests = QListView(objectName="listView")
+        list_my_results_tests.setModel(self.model_my_results_tests)
+        list_my_results_tests.clicked[QModelIndex].connect(lambda index: self.on_show_result_test(False, index))
+
+        list_other_results_tests = QListView(objectName="listView")
+        list_other_results_tests.setModel(self.model_other_results_tests)
+        list_other_results_tests.clicked[QModelIndex].connect(lambda index: self.on_show_result_test(True, index))
+
+        main_splitter.addWidget(self._create_widget_with_list_and_header(
+            list_my_results_tests, QLabel("Результаты пройденных тестов")))
+        main_splitter.addWidget(self._create_widget_with_list_and_header(
+            list_other_results_tests, QLabel("Результаты созданых тестов")))
+        main_splitter.addWidget(self._create_widget_with_list_and_header(list_created_tests, QLabel("Доступные тесты")))
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -446,6 +1072,80 @@ class MainWindow(QWidget):
         self.setWindowTitle("Платформа для создания и проверки тестов")
         self.setMinimumSize(700, 360)
 
+    def on_run_test(self, index: QModelIndex):
+        widget = RunTestWidget(self.tests[index.row()])
+        return widget.exec_()
+
+    def on_show_result_test(self, view_created_tests: bool, index: QModelIndex):
+        rt = self.other_results_tests[index.row()] if view_created_tests else self.my_results_tests[index.row()]
+        self.current_test_widget = ViewResultTest(rt)
+        if rt.user != UserLogic.user:
+            self.current_test_widget.note_line_edit.setReadOnly(True)
+        if view_created_tests:
+            self.current_test_widget.allow_show_answer(True)
+        self.current_test_widget.show()
+
+    def update_data(self):
+        self.load_theories()
+        self.update_tests()
+        self.update_model_my_results_tests()
+        self.update_model_other_results_tests()
+        self.update_model_created_tests()
+
+    def update_tests(self):
+        self.tests = list(set(self.tests).union(set(TestLogic().all_from_user())))
+        for test in self.tests:
+            action = QAction(test.name, self)
+            action.test = test
+            action.triggered.connect(self.run_test)
+            self.menu_run_test.addAction(action)
+        add_test = QAction("Добавить уже существующий тест", self)
+        add_test.triggered.connect(self.add_exist_test)
+        self.menu_run_test.addAction(add_test)
+
+    def update_model_created_tests(self):
+        self.model_created_tests.clear()
+        for test in self.tests:
+            item = QStandardItem(test.name)
+            item.setEditable(False)
+            self.model_created_tests.appendRow(item)
+
+    def _create_header(self, *widgets):
+        header = QFrame(objectName="menuTest")
+        hl = QHBoxLayout(header)
+        hl.setContentsMargins(2, 2, 2, 2)
+        for widget in widgets:
+            hl.addWidget(widget)
+        return header
+
+    def _create_widget_with_list_and_header(self, list_view: QListView, *widgets):
+        w = QWidget()
+        layout = QVBoxLayout(w)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self._create_header(*widgets))
+        layout.addWidget(list_view)
+        return w
+
+    @staticmethod
+    def _create_test_item(result_test: ResultTest):
+        note = result_test.note if result_test.note is not None else ""
+        item = QStandardItem(f"{result_test.test.name}: {result_test.completed_date:%c} - {note}")
+        item.setEditable(False)
+        return item
+
+    def update_model_my_results_tests(self):
+        self.model_my_results_tests.clear()
+        self.my_results_tests = list(ResultTestLogic().get_all_completed())
+        for result_test in self.my_results_tests:
+            self.model_my_results_tests.appendRow(self._create_test_item(result_test))
+
+    def update_model_other_results_tests(self):
+        self.model_other_results_tests.clear()
+        self.other_results_tests = list(ResultTestLogic().get_all_created())
+        for result_test in self.other_results_tests:
+            self.model_other_results_tests.appendRow(self._create_test_item(result_test))
+
     def load_theories(self):
         self.theories = TheoryLogic().get_all()
         self.menu_update_theories.clear()
@@ -454,6 +1154,14 @@ class MainWindow(QWidget):
             action.theory = theory
             action.triggered.connect(self.show_theory_window_for_update)
             self.menu_update_theories.addAction(action)
+
+    def show_results_created_tests(self):
+        self.created_test_widget = ViewResultsTests(True)
+        self.created_test_widget.show()
+
+    def show_results_completed_tests(self):
+        self.completed_test_widget = ViewResultsTests(False)
+        self.completed_test_widget.show()
 
     def show_theory_window(self, _=None, theory: Optional[Theory] = None):
         self.theory = TheoryTabWidget(theory)
@@ -489,13 +1197,18 @@ class MainWindow(QWidget):
         if self.theory:
             self.theory.close()
         widget = RunTestWidget(self.sender().test, self)
-        return widget.exec()
+        widget.exec()
+        if widget.is_need_open_result:
+            self.__new_window = ViewResultTest(widget.result_test)
+            self.__new_window.show()
 
 
 if __name__ == '__main__':
+    locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    with open("Toolery.qss", "r") as f:
+    path = "Toolery.qss" if os.path.exists("Toolery.qss") else os.path.join("desktop_app", "Toolery.qss")
+    with open(path, "r") as f:
         app.setStyleSheet(f.read())
     w = MainWindow()
     w.show()

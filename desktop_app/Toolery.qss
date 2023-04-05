@@ -22,6 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 * {
     font-size: 11px;
+    font-style: url("./resource/fonts/OpenSans-Medium.ttf");
 }
 
 /*-----QWidget-----*/
@@ -62,7 +63,7 @@ QMenuBar, QMenu, QListView
 {
     background: qlineargradient(x1:0, y1:1, x2:1, y2:1, stop:0 #5400c7, stop:1 #5c55e9);
     color: #fff;
-	font-size: 13px;
+	font-size: 14px;
 }
 QMenuBar:hover
 {
@@ -90,6 +91,34 @@ QComboBox:editable
 {
     background-color: #c2c7d5;
     color: #2f2941;
+}
+
+QRadioButton {
+    background-color: transparent;
+    width: 13px;
+    height: 13px;
+}
+QRadioButton::indicator:checked {
+    image: url("./resource/radio_button_checked.svg");
+}
+QRadioButton::indicator:unchecked {
+    image: url("./resource/radio_button_unchecked.svg");
+}
+
+/*----------Меню при прохождении теста------------------- */
+.QFrame#menuTest {
+    background: qlineargradient(x1:0, y1:1, x2:1, y2:1, stop:0 #5400c7, stop:1 #9c0ec4);
+}
+.QFrame#menuTest:hover {
+    background: qlineargradient(x1:0, y1:1, x2:1, y2:1, stop:0 #5400c7, stop:0.5 #c800ff, stop:1 #9c0ec4);
+}
+.QFrame#menuTest > QLabel {
+    color: white;
+}
+
+QTextEdit#question {
+    margin-top: 4px;
+    border: 0px solid white;
 }
 
 /*-----QCheckBox-----*/
@@ -172,6 +201,54 @@ QPushButton::pressed
 
 }
 
+/*-----QListView-----*/
+QListView#listView
+{
+	color: black;
+	font-size: 14px;
+	show-decoration-selected: 0;
+    background-color: white;
+}
+
+
+QListView#listView:disabled
+{
+	background-color: #5c5c5c;
+}
+
+
+QListView#listView::item
+{
+	background-color: #454e5e;
+	border-top: 4px solid white;
+	border-bottom: 4px solid white;
+	border-left: 6px solid qlineargradient(x1:1, y1:0, x2:1, y2:1, stop:0 #5400c7, stop:1 #5c55e9);
+	margin-bottom: 4px;
+	padding: 6px;
+	border-radius: 0px;
+	height: 32px;
+}
+
+
+QListView#listView::item:selected
+{
+    color: white;
+	background-color: #18067d;
+}
+
+
+QListView#listView::item:!selected
+{
+	background-color: transparent;
+	padding-left : 10px;
+}
+
+QListView#listView::item:!selected:hover
+{
+	color: #fff;
+	background-color: #5564f2;
+	padding-left: 15px;
+}
 
 /*-----QTreeView-----*/
 QTreeView 
@@ -306,7 +383,6 @@ QTableCornerButton::section
 QHeaderView::section
 {
 	color: #2a547f;
-	border: 0px;
 	background-color: #ced5e3;
 	padding: 5px;
 
@@ -337,19 +413,7 @@ QHeaderView::section:checked:disabled
 }
 
 
-QHeaderView::section::vertical::first,
-QHeaderView::section::vertical::only-one
-{
-    border-top: 1px solid #353635;
 
-}
-
-
-QHeaderView::section::vertical
-{
-    border-top: 1px solid #353635;
-
-}
 
 
 QHeaderView::section::horizontal::first,
@@ -363,7 +427,6 @@ QHeaderView::section::horizontal::only-one
 QHeaderView::section::horizontal
 {
     border-left: 1px solid #353635;
-
 }
 
 

@@ -7,7 +7,7 @@ from PyQt5.QtGui import QColor, QTextCursor, QTextCharFormat
 from PyQt5.QtWidgets import QTextEdit, QMenu, QTabWidget, QWidget, QAction, QLineEdit, QFormLayout, QSpinBox, \
     QPushButton, QHBoxLayout, QVBoxLayout
 
-from db import Theory
+from db import Theory, PointerToAnswer
 from desktop_app.MessageBox import *
 from logicsDB import TheoryLogic
 
@@ -53,6 +53,17 @@ class TheoryViewWidget(QTabWidget):
         cursor.chapter = self.theory.chapters[self.currentIndex()]
         self.add_cursor(cursor)
         self.added_pointer_to_answer.emit(cursor)
+
+    def set_to_pointer(self, ptr: PointerToAnswer):
+        index = list(self.theory.chapters).index(ptr.chapter)
+        self.setCurrentIndex(index)
+        cursor = QTextCursor(self.currentWidget().document())
+        cursor.setPosition(ptr.start, QTextCursor.MoveAnchor)
+        cursor.setPosition(ptr.end, QTextCursor.KeepAnchor)
+        self.add_cursor(cursor)
+        c = QTextCursor(cursor)
+        c.clearSelection()
+        self.currentWidget().setTextCursor(c)
 
     def add_cursor(self, cursor: QTextCursor):
         self.remove_cursor()

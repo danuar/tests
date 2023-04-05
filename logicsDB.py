@@ -122,3 +122,25 @@ class TestLogic:
 
     def all_from_user(self) -> list[Test]:
         return Context().session.query(Test).filter(Test.creator == UserLogic.user).all()
+
+    def get_count_attempts(self, test: Test) -> Optional[int]:
+        if not test.count_attempts:
+            return None
+        s = Context().session
+        completed_tests = s.query(ResultTest).filter(ResultTest.test == test, ResultTest.user == UserLogic.user).count()
+        return test.count_attempts - completed_tests
+
+
+class ResultTestLogic:
+    def create(self, result_test: ResultTest):
+        Context().session.add(result_test)
+        Context().session.commit()
+
+    def save(self):
+        Context().session.commit()
+
+    def get_all_created(self) -> list[ResultTest]:
+        return Context().session.query(ResultTest).join(Test).filter(Test.creator_id == UserLogic.user.id)
+
+    def get_all_completed(self) -> list[ResultTest]:
+        return Context().session.query(ResultTest).filter(ResultTest.user == UserLogic.user)
