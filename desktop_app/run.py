@@ -10,13 +10,14 @@ from typing import List
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtChart import QChartView, QChart, QPieSeries, QPercentBarSeries, QBarCategoryAxis, QBarSet
 from PyQt5.QtCore import Qt, QTimer, QModelIndex
-from PyQt5.QtGui import QStandardItemModel, QStandardItem, QPainter, QPen, QFont
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QPainter, QPen, QFont, QIcon, QCursor
 from PyQt5.QtWidgets import *
 
 from desktop_app.TheoryWidgets import *
 from desktop_app.ViewQuestion import *
 from db import *
 from logicsDB import UserLogic, TestLogic, ResultTestLogic
+from solve_resource_one_exe import resource_path
 
 
 def sum_time(times: list[datetime.time]):
@@ -24,6 +25,8 @@ def sum_time(times: list[datetime.time]):
 
 
 class CreateTestWidget(QWidget):
+    created_test = pyqtSignal(Test)
+
     def __init__(self, theories: List[Theory], parent=None):
         super().__init__(parent)
         self.test: Optional[Test] = None
@@ -58,8 +61,8 @@ class CreateTestWidget(QWidget):
         form.addRow("Время выполнения (необязательно):", self.completion_time_box)
         form.addRow("Количество попыток:", self.count_attempts_box)
         form.addRow("Теория для теста:", self.theory)
-        form.addRow("Перемешивать ли вопросы:", self.check_box_shuffle)
-        form.addRow("Показывать ли ответы после прохождения:", self.check_box_show_answers)
+        form.addRow("Перемешивать вопросы:", self.check_box_shuffle)
+        form.addRow("Показывать ответы после прохождения:", self.check_box_show_answers)
 
         btn_save = QPushButton("Далее")
         btn_save.clicked.connect(self.to_next)
@@ -234,6 +237,7 @@ class CreateTestWidget(QWidget):
             msg.exec_()
             self.theory_widget.close()
             self.close()
+            self.created_test.emit(self.test)
 
     def copy_test_id(self):
         if self.test is not None:
@@ -355,9 +359,19 @@ class RunTestWidget(QDialog):
 
         label_info = QLabel(f"Тест: {test.name}\nВопросов: {len(test.questions)}\nВремя прохождения: {t} сек.\n{txt}")
         label_info.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        button_copy = QPushButton(str(test.id))
+        button_copy.setObjectName("link")
+        button_copy.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        button_copy.clicked.connect(self.copy_text_id)
+        hl = QHBoxLayout()
+        hl.setSpacing(0)
+        hl.addWidget(QLabel("Скопировать id теста:"), alignment=Qt.AlignLeft)
+
+        hl.addWidget(button_copy, alignment=Qt.AlignLeft)
         vlayout = QVBoxLayout()
         vlayout.setAlignment(Qt.AlignCenter)
         vlayout.addWidget(label_info)
+        vlayout.addLayout(hl)
         vlayout.addWidget(btn_get_theory)
         vlayout.addWidget(btn_running_test)
 
@@ -370,6 +384,9 @@ class RunTestWidget(QDialog):
         self.stacked_widget = QStackedLayout(self)
         self.stacked_widget.addWidget(self._create_widget(vlayout))
         self.stacked_widget.addWidget(self._create_widget(vl))
+
+    def copy_text_id(self):
+        QApplication.clipboard().setText(str(self.test.id))
 
     @staticmethod
     def _get_seconds(current_time: datetime.time):
@@ -815,6 +832,13 @@ class ViewResultTest(QWidget):
             ResultTestLogic().save()
 
 
+class PercentDelegate(QStyledItemDelegate):
+    def displayText(self, value, locale):
+        if isinstance(value, (int, float)):
+            return locale.toString(value*100, "f", 2) + "%"
+        return super().displayText(value, locale)
+
+
 class ViewResultsTests(QTableWidget):
     def __init__(self, view_created_tests: bool, parent: QWidget = None):
         super().__init__(parent)
@@ -840,6 +864,7 @@ class ViewResultsTests(QTableWidget):
             "Примечание",
             "Ручная проверка",
         ]
+        self.setItemDelegateForColumn(4, PercentDelegate(self))
         self.setColumnCount(len(headers))
         self.setHorizontalHeaderLabels(headers)
         self.setSortingEnabled(True)
@@ -849,10 +874,11 @@ class ViewResultsTests(QTableWidget):
 
     def update_data(self):
         self.setRowCount(0)
+        self.clearContents()
         if self.view_created_tests:
-            self.results_tests = list(ResultTestLogic().get_all_created())
+            self.results_tests = list(reversed(list(ResultTestLogic().get_all_created())))
         else:
-            self.results_tests = list(ResultTestLogic().get_all_completed())
+            self.results_tests = list(reversed(list(ResultTestLogic().get_all_completed())))
         for row, result_test in enumerate(self.results_tests):
             self.insertRow(row)
             self.setItem(row, 0, QTableWidgetItem(f"{row}"))
@@ -864,9 +890,9 @@ class ViewResultsTests(QTableWidget):
             item.setData(Qt.EditRole, sum_mark)
             self.setItem(row, 3, item)
 
+            k = sum_mark / sum([i.weight for i in result_test.test.questions])
             item = QTableWidgetItem()
-            item.setData(Qt.EditRole, sum_mark / sum([i.weight for i in result_test.test.questions]))
-            item.setText(f"{item.data(Qt.EditRole) * 100:.2f}%")
+            item.setData(Qt.EditRole, k)
             self.setItem(row, 4, item)
 
             self.setItem(row, 5, QTableWidgetItem(f"{sum_time([i.complition_time for i in result_test.answers])}"))
@@ -1005,7 +1031,7 @@ class MainWindow(QWidget):
         UserLogic.setup_user_from_file()
         self.initUI()
         self.update_data()
-        is_auto_update = False
+        is_auto_update = True
         if is_auto_update:
             self.timer_update = QTimer(self)
             self.timer_update.start(1000)
@@ -1093,7 +1119,11 @@ class MainWindow(QWidget):
         self.update_model_created_tests()
 
     def update_tests(self):
-        self.tests = list(set(self.tests).union(set(TestLogic().all_from_user())))
+        prev_tests = set(self.tests)
+        self.tests = list(prev_tests.union(set(TestLogic().all_from_user())))
+        if prev_tests == set(self.tests) and self.menu_run_test.actions():
+            return
+        self.menu_run_test.clear()
         for test in self.tests:
             action = QAction(test.name, self)
             action.test = test
@@ -1147,7 +1177,10 @@ class MainWindow(QWidget):
             self.model_other_results_tests.appendRow(self._create_test_item(result_test))
 
     def load_theories(self):
+        prev_theories = self.theories
         self.theories = TheoryLogic().get_all()
+        if self.theories == prev_theories:
+            return
         self.menu_update_theories.clear()
         for theory in self.theories:
             action = QAction(theory.name, self)
@@ -1175,6 +1208,7 @@ class MainWindow(QWidget):
     def create_test(self):
         self.create_test_widget = CreateTestWidget(self.theories)
         self.create_test_widget.show()
+        self.create_test_widget.created_test.connect(self.update_tests)
 
     def add_exist_test(self):
         widget = QInputDialog(self)
@@ -1206,8 +1240,10 @@ class MainWindow(QWidget):
 if __name__ == '__main__':
     locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon(resource_path("resource/app_icon.ico")))
     app.setStyle("Fusion")
-    path = "Toolery.qss" if os.path.exists("Toolery.qss") else os.path.join("desktop_app", "Toolery.qss")
+    res_path = resource_path("Toolery.qss")
+    path = res_path if os.path.exists(res_path) else os.path.join("desktop_app", res_path)
     with open(path, "r") as f:
         app.setStyleSheet(f.read())
     w = MainWindow()

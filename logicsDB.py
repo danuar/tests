@@ -1,14 +1,11 @@
-import datetime
 import logging
-import os.path
-from typing import Optional, List, Tuple, Any
+from typing import Optional, List
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from db import *
-import uuid
+from sqlalchemy.orm import Session
 
 import config
+from db import *
+from solve_resource_one_exe import resource_path
 
 
 class Context:
@@ -34,7 +31,7 @@ class Context:
 
 
 class UserLogic:
-    name_file_with_id = "user_id.txt"
+    name_file_with_id = resource_path("user_id.txt")
     user = None
 
     @classmethod
@@ -87,7 +84,7 @@ class TheoryLogic:
 
         for i in range(start, len(theory.chapters)):
             chapter = theory.chapters[i]
-            with open(f"{self.path_to_save_chapters}{chapter.id}.html", "x") as f:
+            with open(f"{self.path_to_save_chapters}{chapter.id}.html", "x", encoding="utf-8") as f:
                 f.write(texts_chapters[i - start])
             logging.info(f"Произошла запись в файл: '{chapter.id}.html' раздела: {chapter.name}")
 
@@ -99,12 +96,14 @@ class TheoryLogic:
         chapters = []
         for chapter in theory.chapters:
             try:
-                with open(f"{self.path_to_save_chapters}{chapter.id}.html", "r") as f:
+                with open(f"{self.path_to_save_chapters}{chapter.id}.html", "r", encoding="utf-8") as f:
                     chapters.append(f.read())
                 names.append(chapter.name)
             except FileNotFoundError:
                 logging.warning(f"При попытке получить раздел теории {chapter.name}, не был найден файл"
                                 f" {self.path_to_save_chapters}{chapter.id}.html")
+            except UnicodeDecodeError as e:
+                logging.error(f"У {f.name} неподдерживаемая кодировка. Новая кодировка: {f.encoding}", exc_info=e)
         return names, chapters
 
 

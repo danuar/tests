@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 * {
     font-size: 11px;
-    font-style: url("./resource/fonts/OpenSans-Medium.ttf");
+    font-style: url("./resource/fonts/OpenSans-Regular.ttf");
 }
 
 /*-----QWidget-----*/
@@ -72,6 +72,11 @@ QMenuBar:hover
 QMenuBar::item:selected, QMenu::item:selected
 {
     background-color: #5564f2;
+}
+
+QMenu::item:disabled
+{
+    background-color: gray;
 }
 
 QComboBox
@@ -178,6 +183,27 @@ QPushButton
 	border-bottom-right-radius: 0px;
 	border-bottom-left-radius: 15px;
 	padding: 10px;
+}
+
+QPushButton#link
+{
+    background-color: transparent;
+    font-weight: normal;
+    text-decoration: underline;
+    color: blue;
+    border: none;
+    padding: 0px;
+    text-align: left;
+}
+
+QPushButton#link:hover
+{
+    color: dodgerblue;
+}
+
+QPushButton#link:pressed
+{
+    color: darkblue;
 }
 
 
