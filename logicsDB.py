@@ -46,7 +46,13 @@ class UserLogic:
             logging.info(f"Создан новый пользователь: {cls.user.id}")
         else:
             cls.user = c.session.query(User).get(ident)
-            logging.info(f"Найден пользователь: {cls.user.id}")
+            if cls.user is not None:
+                logging.info(f"Найден пользователь: {cls.user.id}")
+            else:
+                cls.user = User(id=ident)
+                c.session.add(cls.user)
+                c.session.commit()
+                logging.info(f"Создан пользователь по id={cls.user.id}")
 
         if cls.user is None:
             c.session.add(User(id=ident))
@@ -127,7 +133,7 @@ class TestLogic:
             return None
         s = Context().session
         completed_tests = s.query(ResultTest).filter(ResultTest.test == test, ResultTest.user == UserLogic.user).count()
-        return test.count_attempts - completed_tests
+        return max(0, test.count_attempts - completed_tests)
 
 
 class ResultTestLogic:
@@ -143,3 +149,6 @@ class ResultTestLogic:
 
     def get_all_completed(self) -> list[ResultTest]:
         return Context().session.query(ResultTest).filter(ResultTest.user == UserLogic.user)
+
+    def get(self, ident: uuid.UUID) -> ResultTest:
+        return Context().session.query(ResultTest).get(ident)

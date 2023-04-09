@@ -1,3 +1,4 @@
+import asyncio
 import difflib
 import locale
 import operator
@@ -5,11 +6,13 @@ import os.path
 import sys
 import time
 from functools import reduce
+from multiprocessing import Process
+from threading import Thread
 from typing import List
 
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtChart import QChartView, QChart, QPieSeries, QPercentBarSeries, QBarCategoryAxis, QBarSet
-from PyQt5.QtCore import Qt, QTimer, QModelIndex
+from PyQt5.QtCore import Qt, QTimer, QModelIndex, QObject
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QPainter, QPen, QFont, QIcon, QCursor
 from PyQt5.QtWidgets import *
 
@@ -21,7 +24,10 @@ from solve_resource_one_exe import resource_path
 
 
 def sum_time(times: list[datetime.time]):
-    return reduce(operator.add, (datetime.timedelta(hours=i.hour, minutes=i.minute, seconds=i.second) for i in times))
+    try:
+        return reduce(operator.add, (datetime.timedelta(hours=i.hour, minutes=i.minute, seconds=i.second) for i in times))
+    except TypeError:
+        return 0
 
 
 class CreateTestWidget(QWidget):
@@ -345,17 +351,19 @@ class RunTestWidget(QDialog):
         self.end_run_time = self.completion_time = t
         txt = "Неограниченное количество попыток"
         count_attempts = TestLogic().get_count_attempts(test)
-        if count_attempts:
-            if count_attempts == 0:
-                btn_running_test.setDisabled(True)
+        if count_attempts == 0:
+            btn_running_test.setDisabled(True)
+        if count_attempts is not None:
             if count_attempts % 10 == 1 and count_attempts != 11:
                 attemp = 'попытка'
-            if 2 <= count_attempts % 10 <= 4 and not 12 <= count_attempts <= 14:
+            elif 2 <= count_attempts % 10 <= 4 and not 12 <= count_attempts <= 14:
                 attemp = 'попытки'
             else:
                 attemp = 'попыток'
             if count_attempts > 0:
                 txt = f"Осталось {count_attempts} {attemp}"
+            else:
+                txt = "Не осталось попыток"
 
         label_info = QLabel(f"Тест: {test.name}\nВопросов: {len(test.questions)}\nВремя прохождения: {t} сек.\n{txt}")
         label_info.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -700,7 +708,9 @@ class ViewResultTest(QWidget):
         self.setWindowTitle("Результат теста")
         layout = QVBoxLayout(self)
         current_mark = sum(i.mark for i in result_test.answers if i.mark)
-        all_mark = sum(i.question.weight for i in result_test.answers)
+        all_mark = sum(i.weight for i in result_test.test.questions)
+        if all_mark == 0:
+            all_mark = 0.0
         not_check_mark = sum(i.question.weight for i in result_test.answers if i.mark is None)
         mark = "баллов"
         if current_mark % 10 == 1 and current_mark != 11:
@@ -728,8 +738,8 @@ class ViewResultTest(QWidget):
         hlayout.addWidget(btn_view_result_question, alignment=Qt.AlignRight)
         hl = QHBoxLayout()
         hl.setContentsMargins(0, 0, 0, 0)
-        hl.addWidget(self._create_pie(current_mark, not_check_mark, all_mark))
-        hl.addWidget(self._create_bar())
+        hl.addWidget(self.create_pie(current_mark, not_check_mark, all_mark))
+        hl.addWidget(self.create_bar())
         layout.addLayout(hl)
         layout.addLayout(form)
         layout.addLayout(hlayout)
@@ -742,11 +752,11 @@ class ViewResultTest(QWidget):
         if style[1]:
             element.setBrush(style[1])
 
-    def _create_pie(self, current_mark, not_check_mark, all_mark):
+    def create_pie(self, current_mark, nocheck_mark, all_mark, anim: QChart.AnimationOption = QChart.SeriesAnimations):
         series = QPieSeries()
         series.append(f"Набранные баллы", current_mark)
-        series.append("Упущенные баллы", all_mark - current_mark - not_check_mark)
-        series.append("Непроверенные баллы", not_check_mark)
+        series.append("Упущенные баллы", all_mark - current_mark - nocheck_mark)
+        series.append("Непроверенные баллы", nocheck_mark)
 
         # adding slice
         slice = series.slices()[0]
@@ -758,7 +768,7 @@ class ViewResultTest(QWidget):
 
         chart = QChart()
         chart.addSeries(series)
-        chart.setAnimationOptions(QChart.SeriesAnimations)
+        chart.setAnimationOptions(anim)
         chart.setTitle("Распределение баллов")
         chart.legend().setFont(self.font_legends)
         chart.setTitleFont(self.font_titles)
@@ -774,7 +784,7 @@ class ViewResultTest(QWidget):
         not_check_mark = sum(i.question.weight for i in answers if i.mark is None)
         return current_mark, all_mark - current_mark - not_check_mark, not_check_mark
 
-    def _create_bar(self):
+    def create_bar(self, anim: QChart.AnimationOptions = QChart.SeriesAnimations):
         set0 = QBarSet("Набранные баллы")
         set1 = QBarSet("Упущенные баллы")
         set2 = QBarSet("Непроверенные баллы")
@@ -801,7 +811,7 @@ class ViewResultTest(QWidget):
         chart = QChart()
         chart.addSeries(series)
         chart.setTitle("Баллы по разным типам вопросов")
-        chart.setAnimationOptions(QChart.SeriesAnimations)
+        chart.setAnimationOptions(anim)
 
         categories = ["с вариантами ответов", "с вводимым ответом", "с ручной проверкой"]
         axis = QBarCategoryAxis()
@@ -842,13 +852,16 @@ class PercentDelegate(QStyledItemDelegate):
 class ViewResultsTests(QTableWidget):
     def __init__(self, view_created_tests: bool, parent: QWidget = None):
         super().__init__(parent)
+        self.view_created_tests = view_created_tests
+        self.upd()
+
+    def upd(self):
         self.verify_widget = None
         self.results_tests = []
         self.current_test_widget = None
-        self.view_created_tests = view_created_tests
         self.setMinimumWidth(600)
 
-        if view_created_tests:
+        if self.view_created_tests:
             self.setWindowTitle("Результаты прохождения созданных тестов")
         else:
             self.setWindowTitle("Результаты тестов")
@@ -874,56 +887,60 @@ class ViewResultsTests(QTableWidget):
 
     def update_data(self):
         self.setRowCount(0)
-        self.clearContents()
         if self.view_created_tests:
             self.results_tests = list(reversed(list(ResultTestLogic().get_all_created())))
         else:
             self.results_tests = list(reversed(list(ResultTestLogic().get_all_completed())))
         for row, result_test in enumerate(self.results_tests):
             self.insertRow(row)
-            self.setItem(row, 0, QTableWidgetItem(f"{row}"))
-            sum_mark = sum([i.mark for i in result_test.answers if i.mark is not None])
-            self.setItem(row, 1, QTableWidgetItem(result_test.completed_date.strftime("%c")))
-            self.setItem(row, 2, QTableWidgetItem(result_test.test.name))
+            self.update_row(row, result_test)
 
-            item = QTableWidgetItem()
-            item.setData(Qt.EditRole, sum_mark)
-            self.setItem(row, 3, item)
+    def update_row(self, row, result_test):
+        self.removeCellWidget(row, 7)
+        self.setItem(row, 0, QTableWidgetItem(f"{row}"))
+        sum_mark = sum([i.mark for i in result_test.answers if i.mark is not None])
+        self.setItem(row, 1, QTableWidgetItem(result_test.completed_date.strftime("%c")))
+        self.setItem(row, 2, QTableWidgetItem(result_test.test.name))
 
-            k = sum_mark / sum([i.weight for i in result_test.test.questions])
-            item = QTableWidgetItem()
-            item.setData(Qt.EditRole, k)
-            self.setItem(row, 4, item)
+        item = QTableWidgetItem()
+        item.setData(Qt.EditRole, sum_mark)
+        self.setItem(row, 3, item)
 
-            self.setItem(row, 5, QTableWidgetItem(f"{sum_time([i.complition_time for i in result_test.answers])}"))
-            self.setItem(row, 6, QTableWidgetItem(result_test.note))
+        k = sum_mark / sum([i.weight for i in result_test.test.questions])
+        item = QTableWidgetItem()
+        item.setData(Qt.EditRole, k)
+        self.setItem(row, 4, item)
 
-            if len([i for i in result_test.answers if i.mark is None]):
-                if self.view_created_tests:
-                    item = QWidget()
-                    layout = QHBoxLayout(item)
-                    layout.setContentsMargins(0, 0, 0, 0)
-                    btn = QPushButton("Проверить")
-                    btn.setStyleSheet("padding: 2px;")
-                    btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-                    btn.row = row
-                    btn.clicked.connect(self.open_questions_not_check)
-                    layout.addWidget(btn)
-                    self.setItem(row, 7, QTableWidgetItem("Не проверено"))
-                    self.setCellWidget(row, 7, item)
-                else:
-                    self.setItem(row, 7, QTableWidgetItem("Не проверено"))
+        self.setItem(row, 5, QTableWidgetItem(f"{sum_time([i.complition_time for i in result_test.answers])}"))
+        self.setItem(row, 6, QTableWidgetItem(result_test.note))
+
+        if len([i for i in result_test.answers if i.mark is None]):
+            if self.view_created_tests:
+                item = QWidget()
+                layout = QHBoxLayout(item)
+                layout.setContentsMargins(0, 0, 0, 0)
+                btn = QPushButton("Проверить")
+                btn.setStyleSheet("padding: 2px;")
+                btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                btn.row = row
+                btn.clicked.connect(self.open_questions_not_check)
+                layout.addWidget(btn)
+                self.setItem(row, 7, QTableWidgetItem("Не проверено"))
+                self.setCellWidget(row, 7, item)
             else:
-                self.setItem(row, 7, QTableWidgetItem("Проверено"))
+                self.setItem(row, 7, QTableWidgetItem("Не проверено"))
+        else:
+            self.setItem(row, 7, QTableWidgetItem("Проверено"))
 
     @property
     def result_test(self):
         return self.results_tests[int(self.item(self.horizontalHeader().currentIndex().row(), 0).data(Qt.EditRole))]
 
     def open_questions_not_check(self):
-        self.verify_widget = VerifyNotCheckQuestions(self.results_tests[self.sender().row])
+        row = self.sender().row
+        self.verify_widget = VerifyNotCheckQuestions(self.results_tests[row])
         self.verify_widget.show()
-        self.verify_widget.verifyed.connect(self.update_data)
+        self.verify_widget.verifyed.connect(self.upd)
 
     def update_note(self, note: str):
         self.item(self.horizontalHeader().currentIndex().row(), 6).setText(note)
@@ -1031,10 +1048,12 @@ class MainWindow(QWidget):
         UserLogic.setup_user_from_file()
         self.initUI()
         self.update_data()
-        is_auto_update = True
+        Thread(target=lambda: asyncio.run(self.async_update()), daemon=True).start()
+
+        is_auto_update = False
         if is_auto_update:
             self.timer_update = QTimer(self)
-            self.timer_update.start(1000)
+            self.timer_update.start(3000)
             self.timer_update.setSingleShot(False)
             self.timer_update.timeout.connect(self.update_data)
 
@@ -1114,9 +1133,15 @@ class MainWindow(QWidget):
     def update_data(self):
         self.load_theories()
         self.update_tests()
-        self.update_model_my_results_tests()
         self.update_model_other_results_tests()
+        self.update_model_my_results_tests()
         self.update_model_created_tests()
+
+    async def async_update(self):
+        while True:
+            self.update_model_my_results_tests()
+            self.update_model_other_results_tests()
+            await asyncio.sleep(1)
 
     def update_tests(self):
         prev_tests = set(self.tests)
@@ -1157,24 +1182,33 @@ class MainWindow(QWidget):
         layout.addWidget(list_view)
         return w
 
-    @staticmethod
-    def _create_test_item(result_test: ResultTest):
-        note = result_test.note if result_test.note is not None else ""
-        item = QStandardItem(f"{result_test.test.name}: {result_test.completed_date:%c} - {note}")
+    def _create_test_item(self, result_test: ResultTest):
+        item = QStandardItem()
+        self._set_text_test_item(item, result_test)
         item.setEditable(False)
         return item
 
+    def _set_text_test_item(self, item: QStandardItem, result_test: ResultTest):
+        note = result_test.note if result_test.note is not None else ""
+        text = f"{result_test.test.name}: {result_test.completed_date:%c} - {note}"
+        if text != item.text():
+            item.setText(text)
+
     def update_model_my_results_tests(self):
-        self.model_my_results_tests.clear()
-        self.my_results_tests = list(ResultTestLogic().get_all_completed())
-        for result_test in self.my_results_tests:
+        prev = set(ResultTestLogic().get_all_completed()) - set(self.my_results_tests)
+        for result_test in prev:
             self.model_my_results_tests.appendRow(self._create_test_item(result_test))
+            self.my_results_tests.append(result_test)
+        for i, result_test in enumerate(self.my_results_tests):
+            self._set_text_test_item(self.model_my_results_tests.item(i, 0), result_test)
 
     def update_model_other_results_tests(self):
-        self.model_other_results_tests.clear()
-        self.other_results_tests = list(ResultTestLogic().get_all_created())
-        for result_test in self.other_results_tests:
+        prev = set(ResultTestLogic().get_all_created()) - set(self.other_results_tests)
+        for result_test in prev:
             self.model_other_results_tests.appendRow(self._create_test_item(result_test))
+            self.other_results_tests.append(result_test)
+        for i, result_test in enumerate(self.other_results_tests):
+            self._set_text_test_item(self.model_other_results_tests.item(i, 0), result_test)
 
     def load_theories(self):
         prev_theories = self.theories
@@ -1216,12 +1250,13 @@ class MainWindow(QWidget):
         widget.setLabelText("Введите id теста, который дал вам создатель теста:")
         widget.show()
         if widget.exec_():
-            res = TestLogic().get(uuid.UUID(widget.textValue()))
+            try:
+                res = TestLogic().get(uuid.UUID(widget.textValue()))
+            except:
+                res = None
             if res is not None:
                 self.tests.append(res)
-                action = QAction(res.name, self)
-                action.triggered.connect(self.run_test)
-                self.menu_run_test.insertAction(self.menu_run_test.actions()[-1], action)
+                self.update_tests()
             else:
                 show_msg_information(
                     "Не найден тест",
@@ -1238,7 +1273,7 @@ class MainWindow(QWidget):
 
 
 if __name__ == '__main__':
-    locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
+    locale.setlocale(locale.LC_ALL, 'ru_RU.UTF-8')
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(resource_path("resource/app_icon.ico")))
     app.setStyle("Fusion")

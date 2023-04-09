@@ -61,9 +61,11 @@ class TheoryViewWidget(QTabWidget):
         cursor.setPosition(ptr.start, QTextCursor.MoveAnchor)
         cursor.setPosition(ptr.end, QTextCursor.KeepAnchor)
         self.add_cursor(cursor)
+        result_text = cursor.selectedText()
         c = QTextCursor(cursor)
         c.clearSelection()
         self.currentWidget().setTextCursor(c)
+        return result_text
 
     def add_cursor(self, cursor: QTextCursor):
         self.remove_cursor()
@@ -205,5 +207,6 @@ class TheoryTabWidget(QWidget):
                     chapters.append(self.tabs_chapters.widget(i).toHtml())
                 TheoryLogic().add_chapters(self.updated_theory, names, chapters)
             self.changedTheories.emit()
-            show_msg_question("Теория", "Теоретический материал успешно создан")
+            t = "изменен" if self.updated_theory else "создан"
+            show_msg_information("Теория", f"Теоретический материал успешно {t}")
             self.close()
