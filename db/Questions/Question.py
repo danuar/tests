@@ -8,7 +8,7 @@ class Question(BaseModel):
     name = Column(String(), nullable=False)
     complition_time = Column(Time(), nullable=True)
     weight = Column(Integer(), server_default='1')
-    test_id = Column(Uuid(), ForeignKey('tests.id'))
+    test_id = Column(UUID(), ForeignKey('tests.id'))
     test = relationship("Test", backref=backref("questions", lazy=False), lazy=False)
 
     __table_args__ = (

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import datetime
 import random
 
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy import *

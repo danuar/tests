@@ -13,14 +13,10 @@ class Context:
 
     def __new__(cls, *args, **kwargs):
         if cls.instance is None:
-            return super().__new__(cls)
+            cls.instance = super().__new__(cls)
         return cls.instance
 
     def __init__(self):
-        cls = self.__class__
-        if cls.instance is not None:
-            return
-        cls.instance = self
         engine_psql = create_engine(
             f'postgresql://{config.DATABASE_USER}:{config.DATABASE_PASSWORD}'
             f'@{config.DATABASE_HOST}:{config.DATABASE_PORT}/{config.DATABASE_NAME}',

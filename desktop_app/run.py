@@ -12,7 +12,7 @@ from typing import List
 
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtChart import QChartView, QChart, QPieSeries, QPercentBarSeries, QBarCategoryAxis, QBarSet
-from PyQt5.QtCore import Qt, QTimer, QModelIndex, QObject
+from PyQt5.QtCore import Qt, QTimer, QModelIndex, QObject, QTranslator
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QPainter, QPen, QFont, QIcon, QCursor
 from PyQt5.QtWidgets import *
 
@@ -432,7 +432,7 @@ class RunTestWidget(QDialog):
         if question.question_choice:
             self.answers_check_box = []
             main_layout.addWidget(QLabel("Варианты ответа:"))
-            for answer in question.question_choice.answers:
+            for answer in question.question_choice.answers_test:
                 self.answers_check_box.append(QCheckBox(answer.text))
                 self.answers_check_box[-1].stateChanged.connect(self._on_changed_test_answer)
                 main_layout.addWidget(self.answers_check_box[-1])
@@ -544,7 +544,7 @@ class RunTestWidget(QDialog):
     def _save_question_choice(self, question: Question, answer: Answer):
         assert question.question_choice, "Передан неправильный тип вопроса"
         count_correct = current_count_correct = 0
-        for i, answer_test in enumerate(question.question_choice.answers):
+        for i, answer_test in enumerate(question.question_choice.answers_test):
             if self.answers_check_box[i].isChecked():
                 answer.answers_test.append(answer_test)
                 current_count_correct = current_count_correct + (1 if answer_test.correct else -1)
@@ -628,7 +628,7 @@ class ViewResultTestQuestion(QWidget):
                 form.addRow("Правильный ответ:",
                             self.create_readonly_line_edit(answer.question.question_input_answer.correct_answer))
             if answer.question.question_choice:
-                for test_answer in answer.question.question_choice.answers:
+                for test_answer in answer.question.question_choice.answers_test:
                     is_checked = test_answer in answer.answers_test
                     correct = "Правильный ответ" if test_answer.correct else "Неправильный ответ"
                     check_box = QCheckBox(test_answer.text)
@@ -898,7 +898,7 @@ class ViewResultsTests(QTableWidget):
     def update_row(self, row, result_test):
         self.removeCellWidget(row, 7)
         self.setItem(row, 0, QTableWidgetItem(f"{row}"))
-        sum_mark = sum([i.mark for i in result_test.answers if i.mark is not None])
+        sum_mark = sum([i.mark for i in result_test.answers_test if i.mark is not None])
         self.setItem(row, 1, QTableWidgetItem(result_test.completed_date.strftime("%c")))
         self.setItem(row, 2, QTableWidgetItem(result_test.test.name))
 
@@ -911,10 +911,10 @@ class ViewResultsTests(QTableWidget):
         item.setData(Qt.EditRole, k)
         self.setItem(row, 4, item)
 
-        self.setItem(row, 5, QTableWidgetItem(f"{sum_time([i.complition_time for i in result_test.answers])}"))
+        self.setItem(row, 5, QTableWidgetItem(f"{sum_time([i.complition_time for i in result_test.answers_test])}"))
         self.setItem(row, 6, QTableWidgetItem(result_test.note))
 
-        if len([i for i in result_test.answers if i.mark is None]):
+        if len([i for i in result_test.answers_test if i.mark is None]):
             if self.view_created_tests:
                 item = QWidget()
                 layout = QHBoxLayout(item)
@@ -969,6 +969,8 @@ class VerifyNotCheckQuestions(QWidget):
         self._create_widget()
 
     def _create_widget(self):
+        if self.layout():
+            QWidget().setLayout(self.layout())
         answer = self.answers[self.index_answer]
 
         form = QFormLayout()
@@ -1135,7 +1137,6 @@ class MainWindow(QWidget):
         self.update_tests()
         self.update_model_other_results_tests()
         self.update_model_my_results_tests()
-        self.update_model_created_tests()
 
     async def async_update(self):
         while True:
@@ -1157,6 +1158,7 @@ class MainWindow(QWidget):
         add_test = QAction("Добавить уже существующий тест", self)
         add_test.triggered.connect(self.add_exist_test)
         self.menu_run_test.addAction(add_test)
+        self.update_model_created_tests()
 
     def update_model_created_tests(self):
         self.model_created_tests.clear()
@@ -1274,9 +1276,12 @@ class MainWindow(QWidget):
 
 if __name__ == '__main__':
     locale.setlocale(locale.LC_ALL, 'ru_RU.UTF-8')
+    translator = QTranslator()
+    translator.load("resource/qt_ru.qm")
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(resource_path("resource/app_icon.ico")))
     app.setStyle("Fusion")
+    app.installTranslator(translator)
     res_path = resource_path("Toolery.qss")
     path = res_path if os.path.exists(res_path) else os.path.join("desktop_app", res_path)
     with open(path, "r") as f:

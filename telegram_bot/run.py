@@ -1,25 +1,22 @@
 import asyncio
 import difflib
 import enum
-import html.parser
 import locale
 import operator
 import os
 import sys
 import time
-import uuid
 from functools import reduce
 
 from PyQt5.QtChart import QChart
 from PyQt5.QtWidgets import QApplication
+from aiogram import Bot, Dispatcher, executor, types
 from aiogram.dispatcher.filters import Command
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, MediaGroup, InputFile
 
 from desktop_app.TheoryWidgets import TheoryViewWidget
 from desktop_app.run import ViewResultTest
 from logicsDB import *
-
-from aiogram import Bot, Dispatcher, executor, types
 
 bot = Bot(token=config.API_TOKEN)
 dp = Dispatcher(bot)
@@ -105,7 +102,7 @@ async def get_answers(poll_answer: types.PollAnswer):
     user.state = TelegramUser.State.answered
     answer = user.answer
     count_correct = current_count_correct = 0
-    for i, answer_test in enumerate(answer.question.question_choice.answers):
+    for i, answer_test in enumerate(answer.question.question_choice.answers_test):
         if i in poll_answer.option_ids:
             answer.answers_test.append(answer_test)
             current_count_correct = current_count_correct + (1 if answer_test.correct else -1)
@@ -216,7 +213,7 @@ async def run_test(info: types.CallbackQuery):
         header_msg = await bot.send_message(info.from_user.id, tmp, parse_mode='markdown')
         if question.question_choice:
             poll = await bot.send_poll(info.from_user.id, question.name,
-                                       options=[i.text for i in question.question_choice.answers],
+                                       options=[i.text for i in question.question_choice.answers_test],
                                        allows_multiple_answers=True,
                                        is_anonymous=False,
                                        )
@@ -325,7 +322,7 @@ async def view_questions(callback_query: types.CallbackQuery):
         info += f"\n\nПравильный ответ: {answer.question.question_input_answer.correct_answer}"
     if answer.question.question_choice:
         info += "\n"
-        for test_answer in answer.question.question_choice.answers:
+        for test_answer in answer.question.question_choice.answers_test:
             is_checked = "☑" if test_answer in answer.answers_test else "\t ☐\t"
             correct = "Правильный ответ" if test_answer.correct else "Неправильный ответ"
             info += f"\n{is_checked} - {test_answer.text}"
