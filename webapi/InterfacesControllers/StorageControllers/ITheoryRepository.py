@@ -11,17 +11,17 @@ class ITheoryRepository(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def Create(self, aTheory: TheoryViewModel) -> TheoryViewModel:
+    async def Create(self, aTheory: TheoryViewModel) -> TheoryViewModel:
         pass
 
     @abstractmethod
-    def Update(self, aTheory: TheoryViewModel) -> TheoryViewModel:
+    async def Update(self, aTheory: TheoryViewModel) -> TheoryViewModel:
         pass
 
     @abstractmethod
-    def Get(self, aTheory: TheoryViewModel) -> TheoryViewModel:
+    async def Get(self, aTheory: TheoryViewModel) -> TheoryViewModel:
         pass
 
     @abstractmethod
-    def GetAll(self) -> List[TheoryViewModel]:
+    async def GetAll(self) -> List[TheoryViewModel]:
         pass

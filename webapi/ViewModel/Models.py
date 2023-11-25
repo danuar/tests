@@ -1,10 +1,11 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
+import ipaddress
 from abc import ABCMeta, abstractmethod
 import datetime
 from typing import List, Optional
 
-from webapi.ViewModel import Validator
+from .Validator import Validator
 
 
 class AbstractModelView(object):
@@ -42,7 +43,7 @@ class AnswerTestViewModel(AbstractModelView):
 
     def __init__(self, id_, question, text, is_correct, answers):
         self.id: int = id_
-        self.question: QuestionChoiseViewModel = question
+        self.question: QuestionChoiceViewModel = question
         self.text: str = text
         self.isCorrect: bool = is_correct
         self.answers: List[AnswerViewModel] = answers
@@ -170,7 +171,7 @@ class QuestionViewModel(AbstractModelView):
         self.test: TestViewModel = test
 
 
-class QuestionChoiseViewModel(QuestionViewModel):
+class QuestionChoiceViewModel(QuestionViewModel):
     def AddAnswers(self, aAnswers: List[AnswerTestViewModel]):
         self.answers_test.extend(aAnswers)
         return self
@@ -188,7 +189,7 @@ class QuestionInputAnswerViewModel(QuestionViewModel):
         return QuestionInputAnswerViewModel(aName, aComplitionTime, None, aTest, weight, aCorrectAnswer, aKMisspell)
 
     def __init__(self, id_, name, complition_time, pointer, test, correctAnswer, k_misspell,
-                 weight: Optional[float] = None, question_id=None):
+                 weight: Optional[float] = None):
         super().__init__(id_, name, complition_time, pointer, test, weight)
         self.correctAnswer: str = correctAnswer
         self.k_misspell: float = k_misspell
@@ -292,6 +293,12 @@ class UserViewModel(AbstractModelView):
     def CanBeUpdated(self) -> Validator:
         return Validator.default()
 
+    def CanBeFind(self) -> Validator:
+        if self.id is None and self.ip_address is None and self.userAgent is None:
+            return Validator(UserViewModel, "id|ipaddress|useragent",
+                             "для поиска должно быть заполнено хотя бы одно поле")
+        return Validator.default()
+
     def AddResultTest(self, aResultTest):
         self.resultsTests.append(aResultTest)
         return self
@@ -300,9 +307,20 @@ class UserViewModel(AbstractModelView):
         self.tests.append(aTest)
         return self
 
+    def SetToken(self, token: str):
+        self.token = token
+
     def __init__(self, id_, ipAddress, userAgent, tests, resultsTests):
         self.id: int = id_
         self.ipAddress: int = ipAddress
         self.userAgent: str = userAgent
         self.tests: List[TestViewModel] = tests
         self.resultsTests: List[ResultTestViewModel] = resultsTests
+        self.token: str = ""
+
+    @property
+    def ip_address(self):
+        if self.ipAddress is not None:
+            return str(ipaddress.ip_address(self.ipAddress))
+        return None
+

@@ -1,25 +1,27 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 from abc import ABCMeta, abstractmethod
-from ViewModel import ChapterTheoryViewModel
 from typing import List
 
+from webapi.ViewModel import ChapterTheoryViewModel
+
+
 class IChapterRepository(object):
-	"""@Interface"""
-	__metaclass__ = ABCMeta
-	@abstractmethod
-	def Create(self, aChapter : ChapterTheoryViewModel) -> ChapterTheoryViewModel:
-		pass
+    """@Interface"""
+    __metaclass__ = ABCMeta
 
-	@abstractmethod
-	def Update(self, aChapter : ChapterTheoryViewModel) -> ChapterTheoryViewModel:
-		pass
+    @abstractmethod
+    async def Create(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
+        pass
 
-	@abstractmethod
-	def Get(self, aChapter : ChapterTheoryViewModel) -> ChapterTheoryViewModel:
-		pass
+    @abstractmethod
+    async def Update(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
+        pass
 
-	@abstractmethod
-	def Delete(self, aChapter : ChapterTheoryViewModel) -> ChapterTheoryViewModel:
-		pass
+    @abstractmethod
+    async def Get(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
+        pass
 
+    @abstractmethod
+    async def Delete(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
+        pass

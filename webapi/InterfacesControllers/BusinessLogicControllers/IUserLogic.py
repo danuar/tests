@@ -11,9 +11,9 @@ class IUserLogic(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def RegisterOrAuthorize(self, aUser: UserViewModel) -> UserViewModel:
+    async def RegisterOrAuthorize(self, aUser: UserViewModel) -> UserViewModel:
         pass
 
     @abstractmethod
-    def Get(self, aUser: UserViewModel) -> UserViewModel:
+    async def Get(self, aUser: UserViewModel) -> UserViewModel:
         pass

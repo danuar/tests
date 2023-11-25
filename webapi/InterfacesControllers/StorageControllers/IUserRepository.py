@@ -11,13 +11,13 @@ class IUserRepository(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def RegisterOrAuthorize(self, aUser: UserViewModel) -> UserViewModel:
+    async def RegisterOrAuthorize(self, aUser: UserViewModel) -> UserViewModel:
         pass
 
     @abstractmethod
-    def Get(self, aUser: UserViewModel) -> UserViewModel:
+    async def Get(self, aUser: UserViewModel) -> UserViewModel:
         pass
 
     @abstractmethod
-    def GetFromSessionToken(self, aToken: str) -> UserViewModel:
+    async def GetFromSessionToken(self, aToken: str) -> UserViewModel:
         pass

@@ -8,14 +8,14 @@ from webapi.ViewModel import ChapterTheoryViewModel
 
 
 class ChapterRepository(IChapterRepository, AbstractDbRepository):
-    def Create(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
+    async def Create(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
         pass
 
-    def Update(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
+    async def Update(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
         pass
 
-    def Get(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
+    async def Get(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
         pass
 
-    def Delete(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
+    async def Delete(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
         pass

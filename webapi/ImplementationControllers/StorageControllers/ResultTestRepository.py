@@ -1,25 +1,24 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
-from ViewModel import ResultTestViewModel
-from ViewModel import UserViewModel
-from ViewModel import TestViewModel
-from StorageControllers import IResultTestRepository
-from StorageControllers import AbstractDbRepository
 from typing import List
 
+from webapi.InterfacesControllers import IResultTestRepository
+from webapi.InterfacesControllers.StorageControllers.AbstractDbRepository import AbstractDbRepository
+from webapi.ViewModel import ResultTestViewModel, UserViewModel, TestViewModel
+
+
 class ResultTestRepository(IResultTestRepository, AbstractDbRepository):
-	def Create(self, aResult : ResultTestViewModel) -> ResultTestViewModel:
-		pass
+    async def Create(self, aResult: ResultTestViewModel) -> ResultTestViewModel:
+        pass
 
-	def Update(self, aResult : ResultTestViewModel) -> ResultTestViewModel:
-		pass
+    async def Update(self, aResult: ResultTestViewModel) -> ResultTestViewModel:
+        pass
 
-	def Get(self, aResult : ResultTestViewModel) -> ResultTestViewModel:
-		pass
+    async def Get(self, aResult: ResultTestViewModel) -> ResultTestViewModel:
+        pass
 
-	def GetFromUser(self, aUser : UserViewModel) -> ResultTestViewModel*:
-		pass
+    async def GetFromUser(self, aUser: UserViewModel) -> List[ResultTestViewModel]:
+        pass
 
-	def GetFromTest(self, aTest : TestViewModel) -> ResultTestViewModel*:
-		pass
-
+    async def GetFromTest(self, aTest: TestViewModel) -> List[ResultTestViewModel]:
+        pass

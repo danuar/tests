@@ -1,30 +1,31 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 from abc import ABCMeta, abstractmethod
-from ViewModel import ResultTestViewModel
-from ViewModel import UserViewModel
 from typing import List
 
+from webapi.ViewModel import ResultTestViewModel, UserViewModel
+
+
 class IResultTestLogic(object):
-	"""@Interface"""
-	__metaclass__ = ABCMeta
-	@abstractmethod
-	def Create(self, aResult : ResultTestViewModel) -> ResultTestViewModel:
-		pass
+    """@Interface"""
+    __metaclass__ = ABCMeta
 
-	@abstractmethod
-	def Update(self, aResult : ResultTestViewModel) -> ResultTestViewModel:
-		pass
+    @abstractmethod
+    async def Create(self, aResult: ResultTestViewModel) -> ResultTestViewModel:
+        pass
 
-	@abstractmethod
-	def Get(self, aResult : ResultTestViewModel) -> ResultTestViewModel:
-		pass
+    @abstractmethod
+    async def Update(self, aResult: ResultTestViewModel) -> ResultTestViewModel:
+        pass
 
-	@abstractmethod
-	def GetFromUser(self, aUser : UserViewModel) -> ResultTestViewModel*:
-		pass
+    @abstractmethod
+    async def Get(self, aResult: ResultTestViewModel) -> ResultTestViewModel:
+        pass
 
-	@abstractmethod
-	def CompleteTest(self, aResult : ResultTestViewModel) -> ResultTestViewModel:
-		pass
+    @abstractmethod
+    async def GetFromUser(self, aUser: UserViewModel) -> List[ResultTestViewModel]:
+        pass
 
+    @abstractmethod
+    async def CompleteTest(self, aResult: ResultTestViewModel) -> ResultTestViewModel:
+        pass

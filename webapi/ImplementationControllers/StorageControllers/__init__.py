@@ -1,0 +1,7 @@
+from .ChapterRepository import ChapterRepository
+from .DictionaryCachedService import DictionaryCachedService
+from .QuestionRepository import QuestionRepository
+from .ResultTestRepository import ResultTestRepository
+from .TestRepository import TestRepository
+from .TheoryRepository import TheoryRepository
+from .UserRepository import UserRepository

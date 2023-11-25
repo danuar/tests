@@ -4,6 +4,14 @@ from sqlalchemy import engine_from_config, pool
 from logging.config import fileConfig
 import os
 
+# add your model's MetaData object here
+# for 'autogenerate' support
+# from myapp import mymodel
+from webapi.db import *
+
+target_metadata = Base.metadata
+
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -11,15 +19,6 @@ config = context.config
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 fileConfig(config.config_file_name)
-
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-from db import *
-from db.Base import Base
-
-target_metadata = Base.metadata
-# target_metadata = None
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -75,7 +74,6 @@ PORT = os.getenv('POSTGRES_PORT', 5432)
 DB = os.getenv('POSTGRES_DB', 'ph_tests')
 USER = os.getenv('POSTGRES_USER', 'postgres')
 PASSWORD = os.getenv('POSTGRES_PASSWORD', '1234')
-
 
 config.set_main_option('sqlalchemy.url', f'postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB}')
 

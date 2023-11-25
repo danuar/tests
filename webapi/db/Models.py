@@ -1,10 +1,9 @@
 import uuid
-import datetime
 
+from sqlalchemy import *
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, backref
-from sqlalchemy import *
 
 from webapi.ViewModel import *
 
@@ -31,8 +30,8 @@ class AnswerTest(BaseModel):
     text = Column(String(), nullable=False)
     correct = Column(Boolean(), nullable=False)
     question_choice_id = Column(UUID(), ForeignKey("questions_choice.id"))
-    question_choice = relationship("QuestionChoise", backref='answers', lazy=False)
-    answers = relationship("Answer", secondary=answer_user_by_answer_test, backref='answers_test')
+    question_choice = relationship("QuestionChoice", lazy=False, back_populates="answers_test")
+    answers = relationship("Answer", secondary=answer_user_by_answer_test, back_populates="answers_test")
 
     def GetViewModel(self) -> AnswerTestViewModel:
         return AnswerTestViewModel(self.id, self.question_choice.GetViewModel(), self.text, self.correct,
@@ -50,10 +49,10 @@ class Answer(BaseModel):
     text_answer = Column(String(), nullable=True)
     complition_time = Column(Time(), nullable=False)
     result_test_id = Column(UUID(), ForeignKey('results_tests.id'))
-    result_test = relationship('ResultTest', backref=backref('answers', lazy=False))
+    result_test = relationship('ResultTest')
     question_id = Column(UUID(), ForeignKey('questions.id'))
-    question = relationship("Question", backref='answers')
-    answers_test = relationship("AnswerTest", secondary=answer_user_by_answer_test)
+    question = relationship("Question", back_populates="answers")
+    answers_test = relationship("AnswerTest", secondary=answer_user_by_answer_test, back_populates="answers")
 
     def GetViewModel(self) -> AnswerViewModel:
         return AnswerViewModel(self.id, self.text_answer, self.complition_time, self.question.GetViewModel(),
@@ -72,11 +71,11 @@ class ChapterTheory(BaseModel):
     __tablename__ = "chapters_theory"
     name = Column(VARCHAR(64))
     theory_id = Column(UUID(), ForeignKey('theories.id'))
-    theory = relationship("Theory", backref='chapters', lazy=False)
-    pointers_to_answer = relationship("PointerToAnswer")
+    theory = relationship("Theory", lazy=False, back_populates="chapters")
+    pointers_to_answer = relationship("PointerToAnswer", back_populates="chapter")
 
     def GetViewModel(self) -> ChapterTheoryViewModel:
-        return ChapterTheoryViewModel(id=self.id, name=self.name, theory=self.theory.GetViewModel(),
+        return ChapterTheoryViewModel(id_=self.id, name=self.name, theory=self.theory.GetViewModel(),
                                       pointers=[i.GetViewModel() for i in self.pointers_to_answer])
 
     @staticmethod
@@ -88,9 +87,9 @@ class ChapterTheory(BaseModel):
 class PointerToAnswer(BaseModel):
     __tablename__ = 'pointers_to_answer'
     chapter_id = Column(UUID(), ForeignKey('chapters_theory.id'))
-    chapter = relationship('ChapterTheory', lazy=False)
+    chapter = relationship('ChapterTheory', lazy=False, back_populates="pointers_to_answer")
     question_id = Column(UUID(), ForeignKey('questions.id'))
-    question = relationship("Question", backref=backref("pointer_to_answer", uselist=False, lazy=False), uselist=False)
+    question = relationship("Question", uselist=False, back_populates="pointer_to_answer")
     start = Column(Integer(), nullable=False)
     end = Column(Integer(), nullable=False)
 
@@ -114,16 +113,17 @@ class ResultTest(BaseModel):
     user_id = Column(UUID(), ForeignKey('users.id'))
     user = relationship('User')
     test_id = Column(UUID(), ForeignKey('tests.id'))
-    test = relationship('Test', backref='results_tests', lazy=False)
+    test = relationship('Test', lazy=False, back_populates="results_tests")
     note = Column(String(), nullable=True)
     start_date = Column(DateTime(), nullable=False, default=lambda: datetime.datetime.now())
     completed_date = Column(DateTime(), nullable=True)
 
-    answers = relationship("Answer")
+    answers = relationship("Answer", lazy=False, back_populates="result_test")
 
     def GetViewModel(self) -> ResultTestViewModel:
         return ResultTestViewModel(self.id, self.user.GetViewModel(), self.test.GetViewModel(),
-                                   [i.GetViewModel() for i in self.answers])
+                                   [i.GetViewModel() for i in self.answers],
+                                   self.start_date, self.completed_date, self.note)
 
     @staticmethod
     def CreateFrom(rt: ResultTestViewModel):
@@ -137,13 +137,14 @@ class Test(BaseModel):
     completion_time = Column(Time(), nullable=True)
     name = Column(String(), nullable=False)
     creator_id = Column(UUID(), ForeignKey('users.id'))
-    creator = relationship("User", backref='tests')
+    creator = relationship("User", back_populates="tests")
     count_attempts = Column(Integer(), nullable=True)
     theory_id = Column(UUID(), ForeignKey('theories.id'))
-    theory = relationship('Theory', backref='test')
+    theory = relationship('Theory', back_populates="tests")
     shuffle = Column(Boolean(), nullable=False)
     show_answer = Column(Boolean(), nullable=False)
-    questions = relationship("Question", lazy=False)  # Todo add questions in view model
+    questions = relationship("Question", lazy=False, back_populates="test")  # Todo add questions in view model
+    results_tests = relationship("ResultTest", back_populates="test")
 
     __table_args__ = (
         CheckConstraint('count_attempts > 0', name='attempts_check'),
@@ -165,7 +166,7 @@ class Theory(BaseModel):
     name = Column(String(), nullable=False)
     study_time = Column(Time(), nullable=True)
     tests = relationship("Test")
-    chapters = relationship("ChapterTheory", lazy=False)
+    chapters = relationship("ChapterTheory", lazy=False, back_populates="theory")
 
     def GetViewModel(self) -> TheoryViewModel:
         return TheoryViewModel(self.id, self.name, self.study_time, self.test.GetViewModel(),
@@ -181,8 +182,8 @@ class User(BaseModel):
     __tablename__ = 'users'
     ipAddress = Column(String(), nullable=False, unique=True)
     userAgent = Column(String(), nullable=False, unique=True)
-    results_tests = relationship("ResultTest", lazy=False)
-    tests = relationship("Test", lazy=False)
+    results_tests = relationship("ResultTest", lazy=False, back_populates="user")
+    tests = relationship("Test", lazy=False, back_populates="creator")
 
     def GetViewModel(self) -> UserViewModel:
         return UserViewModel(self.id, self.ipAddress, self.userAgent, [i.GetViewModel() for i in self.tests],
@@ -190,7 +191,7 @@ class User(BaseModel):
 
     @staticmethod
     def CreateFrom(user: UserViewModel):
-        return User(id=user.id, ipAddress=user.ipAddress, userAgent=user.userAgent,
+        return User(id=user.id, ipAddress=user.ip_address, userAgent=user.userAgent,
                     tests=[Test.CreateFrom(i) for i in user.tests],
                     results_tests=[ResultTest.CreateFrom(i) for i in user.resultsTests])
 
@@ -201,8 +202,13 @@ class Question(BaseModel):
     complition_time = Column(Time(), nullable=True)
     weight = Column(Integer(), server_default='1')
     test_id = Column(UUID(), ForeignKey('tests.id'))
-    test = relationship("Test", backref=backref("questions", lazy=False), lazy=False)
-    pointer_to_answer = relationship("PointerToAnswer", use_list=False, lazy=False)
+    test = relationship("Test", lazy=False, back_populates="questions")
+    pointer_to_answer = relationship("PointerToAnswer", uselist=False, lazy=False, back_populates="question")
+    answers = relationship("Answer")
+
+    question_choice = relationship("QuestionChoice",            uselist=False, back_populates="question")
+    question_input_answer = relationship("QuestionInputAnswer", uselist=False, back_populates="question")
+    question_not_check = relationship("QuestionNotCheck",       uselist=False, back_populates="question")
 
     __table_args__ = (
         CheckConstraint('weight > 0', name='weight_check'),
@@ -220,21 +226,21 @@ class Question(BaseModel):
                         test=Test.CreateFrom(q.test), weight=q.weight)
 
 
-class QuestionChoise(BaseModel):
+class QuestionChoice(BaseModel):
     __tablename__ = 'questions_choice'
     question_id = Column(UUID(), ForeignKey("questions.id"))
-    question = relationship("Question", backref=backref("question_choice", uselist=False, lazy=False), uselist=False)
-    answers_test = relationship("AnswerTest", lazy=False)
+    question = relationship("Question", uselist=False, back_populates="question_choice")
+    answers_test = relationship("AnswerTest", lazy=False, back_populates="question_choice")
 
-    def GetViewModel(self) -> QuestionChoiseViewModel:
+    def GetViewModel(self) -> QuestionChoiceViewModel:
         q: Question = self.question
-        return QuestionChoiseViewModel(self.id, q.name, q.complition_time,
+        return QuestionChoiceViewModel(self.id, q.name, q.complition_time,
                                        PointerToAnswer.CreateFrom(self.pointer_to_answer), q.test, q.weight,
                                        self.answers_test)
 
     @staticmethod
-    def CreateFrom(q: QuestionChoiseViewModel):
-        return QuestionChoise(id=q.id, question=Question.CreateFrom(q),
+    def CreateFrom(q: QuestionChoiceViewModel):
+        return QuestionChoice(id=q.id, question=Question.CreateFrom(q),
                               answers_test=[AnswerTest.CreateFrom(i) for i in q.answers_test])
 
 
@@ -243,8 +249,7 @@ class QuestionInputAnswer(BaseModel):
     correct_answer = Column(String(), nullable=False)
     k_misspell = Column(Float(), nullable=False)
     question_id = Column(UUID(), ForeignKey('questions.id'))
-    question = relationship('Question',
-                            backref=backref('question_input_answer', uselist=False, lazy=False), uselist=False)
+    question = relationship('Question', uselist=False, back_populates="question_input_answer")
 
     __table_args__ = (
         CheckConstraint('k_misspell >= 0 AND k_misspell <= 1', name='misspel_check'),
@@ -264,7 +269,7 @@ class QuestionInputAnswer(BaseModel):
 class QuestionNotCheck(BaseModel):
     __tablename__ = 'questions_not_check'
     question_id = Column(UUID(), ForeignKey('questions.id'))
-    question = relationship('Question', backref=backref('question_not_check', uselist=False, lazy=False), uselist=False)
+    question = relationship('Question', uselist=False, back_populates="question_not_check")
 
     def GetViewModel(self) -> QuestionNotCheckViewModel:
         q: Question = self.question
@@ -274,21 +279,3 @@ class QuestionNotCheck(BaseModel):
     @staticmethod
     def CreateFrom(q: QuestionNotCheckViewModel):
         return QuestionNotCheck(id=q.id, question=Question.CreateFrom(q))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

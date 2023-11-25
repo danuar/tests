@@ -9,16 +9,16 @@ from webapi.ViewModel import TheoryViewModel, ChapterTheoryViewModel
 
 
 class TheoryLogic(ITheoryLogic):
-    def Create(self, aTheory: TheoryViewModel) -> TheoryViewModel:
+    async def Create(self, aTheory: TheoryViewModel) -> TheoryViewModel:
         pass
 
-    def Update(self, aUser, aTheory: TheoryViewModel) -> TheoryViewModel:
+    async def Update(self, aUser, aTheory: TheoryViewModel) -> TheoryViewModel:
         pass
 
-    def Get(self, aTheory: TheoryViewModel) -> TheoryViewModel:
+    async def Get(self, aTheory: TheoryViewModel) -> TheoryViewModel:
         pass
 
-    def GetAll(self) -> List[TheoryViewModel]:
+    async def GetAll(self) -> List[TheoryViewModel]:
         pass
 
     def LoadChapters(self, aTheory: TheoryViewModel, aPath) -> List[ChapterTheoryViewModel]:
