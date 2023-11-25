@@ -48,12 +48,19 @@ class UserRepository(IUserRepository, AbstractDbRepository):
 		# 	result = await self.session.get(User, aUser.id)
 		# 	self.cachedService.Set(f"User.Get.Id.{aUser.id}", result)
 		# 	return result
+		user = None
 		if aUser.id is not None:
-			return await self.session.get(User, aUser.id)
+			user = await self.session.get(User, aUser.id)
 		if aUser.ip_address is not None:
-			return (await self.session.execute(select(User).filter(User.ipAddress == aUser.ip_address))).scalar()
+			user = (await self.session.execute(select(User).filter(User.ipAddress == aUser.ip_address))).scalar()
 		if aUser.userAgent is not None:
-			return (await self.session.execute(select(User).filter(User.userAgent == aUser.userAgent))).scalar()
+			user = (await self.session.execute(select(User).filter(User.userAgent == aUser.userAgent))).scalar()
+		if user is not None:
+			return user.GetViewModel()
 
 	async def GetFromSessionToken(self, aToken: str) -> UserViewModel:
-		return self.cachedService.Get(f"User.Token.{aToken}")
+		await self._pass()
+		return self.cachedService.TryGet(f"User.Token.{aToken}")
+
+	async def _pass(self):
+		pass

@@ -9,10 +9,13 @@ from webapi.ViewModel import UserViewModel
 
 
 class UserLogic(IUserLogic):
+    async def Get(self, aUser: UserViewModel) -> UserViewModel:
+        return await self._repository.Get(aUser)
+
     async def RegisterOrAuthorize(self, aUser: UserViewModel) -> UserViewModel:
         return await self._repository.RegisterOrAuthorize(aUser)
 
-    async def Get(self, aToken: str) -> UserViewModel:
+    async def GetFromSession(self, aToken: str) -> UserViewModel:
         return await self._repository.GetFromSessionToken(aToken)
 
     def __init__(self):

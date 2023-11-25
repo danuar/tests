@@ -17,3 +17,7 @@ class IUserLogic(object):
     @abstractmethod
     async def Get(self, aUser: UserViewModel) -> UserViewModel:
         pass
+
+    @abstractmethod
+    async def GetFromSession(self, aToken: str) -> UserViewModel:
+        pass
