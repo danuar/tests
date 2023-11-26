@@ -17,50 +17,55 @@ from webapi.db.DbSession import DbSession
 
 
 class UserRepository(IUserRepository, AbstractDbRepository):
-	def __init__(self):
-		super().__init__()
-		self.cachedService: ICachedService = ICachedService.__subclasses__()[-1]()
-		self.session = DbSession().async_session
+    def __init__(self):
+        super().__init__()
+        self.cachedService: ICachedService = ICachedService.__subclasses__()[-1]()
+        self.session = DbSession().async_session
 
-	async def RegisterOrAuthorize(self, aUser: UserViewModel) -> UserViewModel:
-		aUser.CanBeCreated().raiseValidateException()
-		user = User.CreateFrom(aUser)
-		try:
-			self.session.add(user)
-			await self.session.commit()
-		except IntegrityError as e:
-			await self.session.rollback()
-			user = await self.Get(UserViewModel.Create(None, aUser.userAgent))
-			if user is None:
-				user = await self.Get(UserViewModel.Create(aUser.ipAddress, None))
-		user.SetToken(user.id)
-		self.cachedService.Set(f"User.Token.{user.token}", user)
-		return user
+    async def RegisterOrAuthorize(self, aUser: UserViewModel) -> UserViewModel:
+        aUser.CanBeCreated().raiseValidateException()
+        user = User.CreateFrom(aUser)
+        try:
+            self.session.add(user)
+            await self.session.commit()
+        except IntegrityError as e:
+            await self.session.rollback()
+            user = await self.Get(UserViewModel.Create(aUser.ipAddress, aUser.userAgent))
+            if user is None:
+                raise e
+        user.SetToken(user.id)
+        self.cachedService.Set(f"User.Token.{user.token}", user)
+        return user
 
-	async def Get(self, aUser: UserViewModel) -> UserViewModel:
-		aUser.CanBeFind().raiseValidateException()
-		# todo cache
-		# result = self.cachedService.TryGet(f"User.Get.Id.{aUser.id}")
-		#
-		# if self.cachedService.result_last_operation:
-		# 	return result
-		# else:
-		# 	result = await self.session.get(User, aUser.id)
-		# 	self.cachedService.Set(f"User.Get.Id.{aUser.id}", result)
-		# 	return result
-		user = None
-		if aUser.id is not None:
-			user = await self.session.get(User, aUser.id)
-		if aUser.ip_address is not None:
-			user = (await self.session.execute(select(User).filter(User.ipAddress == aUser.ip_address))).scalar()
-		if aUser.userAgent is not None:
-			user = (await self.session.execute(select(User).filter(User.userAgent == aUser.userAgent))).scalar()
-		if user is not None:
-			return user.GetViewModel()
+    async def Get(self, aUser: UserViewModel) -> UserViewModel:
+        aUser.CanBeFind().raiseValidateException()
+        # todo cache
+        # result = self.cachedService.TryGet(f"User.Get.Id.{aUser.id}")
+        #
+        # if self.cachedService.result_last_operation:
+        # 	return result
+        # else:
+        # 	result = await self.session.get(User, aUser.id)
+        # 	self.cachedService.Set(f"User.Get.Id.{aUser.id}", result)
+        # 	return result
+        user = None
+        if aUser.id is not None:
+            user = await self.session.get(User, aUser.id)
+        elif aUser.ipAddress is not None and aUser.userAgent is not None:
+            user = (await self.session.execute(select(User)
+                                               .where((User.ipAddress == aUser.ip_address) |
+                                                      (User.userAgent == aUser.userAgent)))).scalar()
+        elif aUser.ipAddress is not None:
+            user = (await self.session.execute(select(User).filter(User.ipAddress == aUser.ip_address))).scalar()
+        elif aUser.userAgent is not None:
+            user = (await self.session.execute(select(User).filter(User.userAgent == aUser.userAgent))).scalar()
 
-	async def GetFromSessionToken(self, aToken: str) -> UserViewModel:
-		await self._pass()
-		return self.cachedService.TryGet(f"User.Token.{aToken}")
+        if user is not None:
+            return user.GetViewModel()
 
-	async def _pass(self):
-		pass
+    async def GetFromSessionToken(self, aToken: str) -> UserViewModel:
+        await self._pass()
+        return self.cachedService.TryGet(f"User.Token.{aToken}")
+
+    async def _pass(self):
+        pass

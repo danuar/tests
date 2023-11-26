@@ -72,15 +72,17 @@ class ChapterTheory(BaseModel):
     name = Column(VARCHAR(64))
     theory_id = Column(UUID(as_uuid=True), ForeignKey('theories.id'))
     theory = relationship("Theory", lazy=False, back_populates="chapters")
-    pointers_to_answer = relationship("PointerToAnswer", back_populates="chapter")
+    pointers_to_answer = relationship("PointerToAnswer", lazy=False, back_populates="chapter")
 
-    def GetViewModel(self) -> ChapterTheoryViewModel:
-        return ChapterTheoryViewModel(id_=self.id, name=self.name, theory=self.theory.GetViewModel(),
+    def GetViewModel(self, load_theory=True) -> ChapterTheoryViewModel:
+        return ChapterTheoryViewModel(id_=self.id, name=self.name,
+                                      theory=self.theory.GetViewModel() if load_theory else None,
                                       pointers=[i.GetViewModel() for i in self.pointers_to_answer])
 
     @staticmethod
     def CreateFrom(chapter: ChapterTheoryViewModel):
-        return ChapterTheory(id=chapter.id, name=chapter.name, theory=Theory.CreateFrom(chapter.theory),
+        return ChapterTheory(id=chapter.id, name=chapter.name,
+                             theory=Theory.CreateFrom(chapter.theory) if chapter.theory.id is None else None,
                              pointers_to_answer=[PointerToAnswer.CreateFrom(i) for i in chapter.pointers])
 
 
@@ -173,7 +175,7 @@ class Theory(BaseModel):
 
     def GetViewModel(self) -> TheoryViewModel:
         return TheoryViewModel(self.id, self.name, self.study_time, [i.GetViewModel() for i in self.tests],
-                               [i.GetViewModel() for i in self.chapters],
+                               [i.GetViewModel(load_theory=False) for i in self.chapters],
                                creator=None if self.creator is None else self.creator.GetViewModel())
 
     @staticmethod
@@ -212,9 +214,9 @@ class Question(BaseModel):
     pointer_to_answer = relationship("PointerToAnswer", uselist=False, lazy=False, back_populates="question")
     answers = relationship("Answer")
 
-    question_choice = relationship("QuestionChoice",            uselist=False, back_populates="question")
+    question_choice = relationship("QuestionChoice", uselist=False, back_populates="question")
     question_input_answer = relationship("QuestionInputAnswer", uselist=False, back_populates="question")
-    question_not_check = relationship("QuestionNotCheck",       uselist=False, back_populates="question")
+    question_not_check = relationship("QuestionNotCheck", uselist=False, back_populates="question")
 
     __table_args__ = (
         CheckConstraint('weight > 0', name='weight_check'),

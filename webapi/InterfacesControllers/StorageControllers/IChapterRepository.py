@@ -3,7 +3,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
-from webapi.ViewModel import ChapterTheoryViewModel
+from webapi.ViewModel import ChapterTheoryViewModel, UserViewModel
 
 
 class IChapterRepository(object):
@@ -15,7 +15,7 @@ class IChapterRepository(object):
         pass
 
     @abstractmethod
-    async def Update(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
+    async def Update(self, user: UserViewModel, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
         pass
 
     @abstractmethod

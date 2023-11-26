@@ -30,9 +30,11 @@ async def get_user(request: Request,
     logic = get_user_logic()
     user = await logic.GetFromSession(token)
     if user is None:
-        if user_agent is None:
-            raise Exception("Не заполнен UserAgent")
         int_ipaddress = int(ipaddress.ip_address(request.client.host))
-        user = await logic.RegisterOrAuthorize(UserViewModel.Create(int_ipaddress, user_agent))
+        try:
+            user = await logic.RegisterOrAuthorize(UserViewModel.Create(int_ipaddress, user_agent))
+        except Exception as e:
+            if user_agent is None:
+                raise Exception("Не заполнен UserAgent")
         response.set_cookie("token", user.token)
     return user

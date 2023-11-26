@@ -24,9 +24,10 @@ class TheoryRepository(ITheoryRepository, AbstractDbRepository):
         self.session.add(theory)
         await self.session.commit()
 
-        return TheoryViewModel(theory.id, theory.name, theory.study_time)
+        # todo пофиксить дрисню
+        return TheoryViewModel(theory.id, theory.name, theory.study_time, [], [], aTheory.creator)
 
-    async def Update(self, aTheory: TheoryViewModel) -> TheoryViewModel:
+    async def Update(self, user: UserViewModel, aTheory: TheoryViewModel) -> TheoryViewModel:
         aTheory.CanBeUpdated().raiseValidateException()
 
         await self.session.execute(update(Theory)
@@ -35,6 +36,9 @@ class TheoryRepository(ITheoryRepository, AbstractDbRepository):
         theory: Theory = await self.session.get(Theory, aTheory.id)
         if theory is None:
             raise Exception("Неверно задан id для теории")
+        if theory.creator_id != user.id:
+            await self.session.rollback()
+            raise Exception("Менять теорию может только ее владелец")
         await self.session.commit()
 
         return theory.GetViewModel()
@@ -44,5 +48,4 @@ class TheoryRepository(ITheoryRepository, AbstractDbRepository):
 
     async def GetAllFromUser(self, user: UserViewModel) -> List[TheoryViewModel]:
         result: Result = (await self.session.execute(select(Theory).where(Theory.creator_id == user.id)))
-        r = [i.GetViewModel() for i in result.unique().scalars().all()]
-        return r
+        return [i.GetViewModel().SetCreator(None) for i in result.unique().scalars()]

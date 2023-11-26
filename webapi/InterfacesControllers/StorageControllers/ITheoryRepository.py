@@ -15,7 +15,7 @@ class ITheoryRepository(object):
         pass
 
     @abstractmethod
-    async def Update(self, aTheory: TheoryViewModel) -> TheoryViewModel:
+    async def Update(self, user: UserViewModel, aTheory: TheoryViewModel) -> TheoryViewModel:
         pass
 
     @abstractmethod

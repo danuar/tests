@@ -19,11 +19,11 @@ class TheoryController(AbstractController):
         return await self._logic.Create(TheoryViewModel.Create(theory.name, user, aStudyTime=theory.studyTime))
 
     @put("/theory")
-    async def update_theory_from_id(self, aId: uuid.UUID, theory: TheorySchema) -> TheoryViewModel:
-        return await self._logic.Update(TheoryViewModel.Update(aId, theory.name, theory.studyTime))
+    async def update_theory_by_id(self, aId: uuid.UUID, theory: TheorySchema, user=Depends(get_user)) -> TheoryViewModel:
+        return await self._logic.Update(user, TheoryViewModel.Update(aId, theory.name, theory.studyTime))
 
     @get("/theory")
-    async def get_theory_from_id(self, aId: uuid.UUID) -> TheoryViewModel:
+    async def get_theory_by_id(self, aId: uuid.UUID) -> TheoryViewModel:
         return await self._logic.Get(TheoryViewModel.GetFromId(aId))
 
     @get("/pdf")
@@ -35,7 +35,7 @@ class TheoryController(AbstractController):
         pass
 
     @get("/theories")
-    async def get_available_theories(self, user=Depends(get_user)) -> List[TheoryViewModel]:
+    async def get_created_theories(self, user=Depends(get_user)) -> List[TheoryViewModel]:
         return await self._logic.GetAllFromUser(user)
 
     def __init__(self, *args, **kwargs):

@@ -23,7 +23,7 @@ class IChapterLogic(object):
         pass
 
     @abstractmethod
-    async def Delete(self, aUser, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
+    async def Delete(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
         pass
 
     @abstractmethod

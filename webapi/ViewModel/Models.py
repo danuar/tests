@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 import ipaddress
+import uuid
 from abc import ABCMeta, abstractmethod
 import datetime
 from typing import List, Optional
@@ -86,14 +87,23 @@ class ChapterTheoryViewModel(AbstractModelView):
         return ChapterTheoryViewModel(id_, name, None, [])
 
     @staticmethod
-    def Delete(id_: int):
+    def Get(id_: int):
         return ChapterTheoryViewModel(id_, None, None, [])
+
+    @staticmethod
+    def Delete(id_: int, user_id: uuid.UUID):
+        return ChapterTheoryViewModel(id_, None, TheoryViewModel.Create(None, UserViewModel.Update(user_id)), [])
 
     def CanBeCreated(self) -> Validator:
         return Validator(None, None, None)
 
     def CanBeUpdated(self) -> Validator:
         return Validator(None, None, None)
+
+    def CanBeDeleted(self) -> Validator:
+        if self.id is None or self.theory is None or self.theory.creator is None or self.theory.creator.id is None:
+            return Validator(type(self), "id & creator.id", "Для удаления надо определить id главы и user_id")
+        return Validator.default()
 
     def AddPointerToAnswer(self, pointer):
         self.pointers.append(pointer)
@@ -267,7 +277,7 @@ class TheoryViewModel(AbstractModelView):
 
     @staticmethod
     def GetFromId(aId):
-        return TheoryViewModel(aId, None, None, None, None, None)
+        return TheoryViewModel(aId, None, None, [], [], None)
 
     def CanBeCreated(self) -> Validator:
         if self.name is None or self.name == "":
@@ -279,6 +289,10 @@ class TheoryViewModel(AbstractModelView):
         if self.creator is not None:
             return Validator(type(self), "creator", "Создатель теории не может быть изменен")
         return Validator.default()
+
+    def SetCreator(self, creator):
+        self.creator = creator
+        return self
 
     def __init__(self, id_, name, studyTime, tests, chapters, creator):
         self.id: int = id_
