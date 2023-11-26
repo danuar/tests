@@ -241,19 +241,23 @@ class ResultTestViewModel(AbstractModelView):
 
 class TestViewModel(AbstractModelView):
     @staticmethod
-    def Create(aName: str, aCountAttempts: int, shuffle: bool, showAnswer: bool,
+    def Create(aName: str, aCountAttempts: int, shuffle: bool, showAnswer: bool, user, theory,
                aComplitionTime: datetime.datetime = None):
-        return TestViewModel(None, aComplitionTime, aName, aCountAttempts, None, None, shuffle, showAnswer)
+        return TestViewModel(None, aComplitionTime, aName, aCountAttempts, user, theory, shuffle, showAnswer)
 
     @staticmethod
     def Update(aId: int, aName: str):
         return TestViewModel(aId, None, aName, None, None, None, None, None)
 
+    @staticmethod
+    def GetFromId(aId: uuid.UUID):
+        return TestViewModel.Update(aId, None)
+
     def CanBeCreated(self) -> Validator:
-        pass
+        return Validator.default()  # todo реализовать валидацию всех моделей
 
     def CanBeUpdated(self) -> Validator:
-        pass
+        return Validator.default()
 
     def __init__(self, id_, complitionTime, name, countAttempts, user, theory, shuffle, showAnswer):
         self.id: int = id_

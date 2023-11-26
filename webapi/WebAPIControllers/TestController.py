@@ -1,27 +1,47 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
-from BusinessLogicControllers import TestLogic
-from ViewModel import TestViewModel
+import uuid
+
 from typing import List
 
-class TestController(object):
-	def CreateTestPOST(self, aTest : TestViewModel) -> TestViewModel:
-		pass
+from classy_fastapi import post, put, get
+from fastapi import Depends
 
-	def UpdateTestPUT(self, aId : integer, aTest : TestViewModel) -> TestViewModel:
-		pass
+from webapi.InterfacesControllers import ITestLogic
+from webapi.SchemasModel import TestSchema, TestUpdateSchema
+from webapi.ViewModel import TestViewModel, TheoryViewModel
+from webapi.WebAPIControllers.AbstractController import AbstractController
+from webapi.WebAPIControllers.DefineDepends import get_user
 
-	def CreatedGET(self) -> TestViewModel*:
-		pass
 
-	def CompletedGET(self) -> TestViewModel*:
-		pass
+class TestController(AbstractController):
 
-	def GET(self, aId : int) -> TestViewModel*:
-		pass
+    @post("/test")
+    async def create_new_test(self, test: TestSchema, user=Depends(get_user)) -> TestViewModel:
+        if isinstance(test.theory, TheoryViewModel):
+            theory = test.theory
+            theory = TheoryViewModel.Create(theory.name, user, aStudyTime=theory.studyTime)
+        else:
+            theory = TheoryViewModel.GetFromId(test.theory)
+        return await self._logic.Create(TestViewModel.Create(test.name, test.count_attempts, test.shuffle,
+                                                             test.show_answer, user, theory, test.complition_time))
 
-	def __init__(self):
-		self.___logic : TestLogic = None
-		self._unnamed_TestLogic_ : TestLogic = None
-		"""# @AssociationKind Composition"""
+    @put("/test")
+    async def update_own_test(self, aId: uuid.UUID, aTest: TestUpdateSchema, user=Depends(get_user)) -> TestViewModel:
+        return await self._logic.Update(user, TestViewModel.Update(aId, aTest.name))
 
+    @get("/created_test")
+    async def get_created_test(self, user=Depends(get_user)) -> List[TestViewModel]:
+        return await self._logic.GetCreated(user)
+
+    @get("/comleted_test")
+    async def get_completed_test(self, user=Depends(get_user)) -> List[TestViewModel]:
+        return await self._logic.GetCompleted(user)
+
+    @get("/test")
+    async def get_test_by_id(self, aId: uuid.UUID) -> TestViewModel:
+        return await self._logic.Get(TestViewModel.GetFromId(aId))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._logic: ITestLogic = ITestLogic.__subclasses__()[-1]()

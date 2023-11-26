@@ -142,7 +142,7 @@ class Test(BaseModel):
     creator = relationship("User", back_populates="tests")
     count_attempts = Column(Integer(), nullable=True)
     theory_id = Column(UUID(as_uuid=True), ForeignKey('theories.id'))
-    theory = relationship('Theory', back_populates="tests")
+    theory = relationship('Theory', lazy=False, back_populates="tests")
     shuffle = Column(Boolean(), nullable=False)
     show_answer = Column(Boolean(), nullable=False)
     questions = relationship("Question", lazy=False, back_populates="test")  # Todo add questions in view model
@@ -152,15 +152,18 @@ class Test(BaseModel):
         CheckConstraint('count_attempts > 0', name='attempts_check'),
     )
 
-    def GetViewModel(self) -> TestViewModel:
-        return TestViewModel(self.id, self.completion_time, self.name, self.count_attempts, self.user.GetViewModel(),
-                             self.theory.GetViewModel(), self.shuffle, self.show_answer)
+    def GetViewModel(self, load_user=True, load_theory=True) -> TestViewModel:
+        return TestViewModel(self.id, self.completion_time, self.name, self.count_attempts,
+                             self.user.GetViewModel() if load_user else None,
+                             self.theory.GetViewModel(load_user=load_user) if load_theory else None,
+                             self.shuffle, self.show_answer)
 
     @staticmethod
     def CreateFrom(test: TestViewModel):
         return Test(id=test.id, name=test.name, completion_time=test.complitionTime, count_attempts=test.countAttempts,
-                    creator=User.CreateFrom(test.user), theory=Theory.CreateFrom(test.theory), shuffle=test.shuffle,
-                    show_answer=test.showAnswer)
+                    creator_id=test.user.id,
+                    theory=Theory.CreateFrom(test.theory) if test.theory.id is None else None,
+                    shuffle=test.shuffle, show_answer=test.showAnswer)
 
 
 class Theory(BaseModel):
@@ -173,10 +176,10 @@ class Theory(BaseModel):
     tests = relationship("Test", lazy=False, back_populates="theory")
     chapters = relationship("ChapterTheory", lazy=False, back_populates="theory")
 
-    def GetViewModel(self) -> TheoryViewModel:
-        return TheoryViewModel(self.id, self.name, self.study_time, [i.GetViewModel() for i in self.tests],
+    def GetViewModel(self, load_user=True) -> TheoryViewModel:
+        return TheoryViewModel(self.id, self.name, self.study_time, [],
                                [i.GetViewModel(load_theory=False) for i in self.chapters],
-                               creator=None if self.creator is None else self.creator.GetViewModel())
+                               creator=self.creator.GetViewModel() if self.creator and load_user else None)
 
     @staticmethod
     def CreateFrom(theory: TheoryViewModel):
@@ -194,7 +197,8 @@ class User(BaseModel):
     theories = relationship("Theory", lazy=False, back_populates="creator")
 
     def GetViewModel(self) -> UserViewModel:
-        return UserViewModel(self.id, self.ipAddress, self.userAgent, [i.GetViewModel() for i in self.tests],
+        return UserViewModel(self.id, self.ipAddress, self.userAgent,
+                             [i.GetViewModel(load_user=False) for i in self.tests],
                              [i.GetViewModel() for i in self.results_tests])
 
     @staticmethod

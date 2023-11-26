@@ -15,7 +15,7 @@ class ITestRepository(object):
         pass
 
     @abstractmethod
-    async def Update(self, aTest: TestViewModel) -> TestViewModel:
+    async def Update(self, aUser: UserViewModel, aTest: TestViewModel) -> TestViewModel:
         pass
 
     @abstractmethod

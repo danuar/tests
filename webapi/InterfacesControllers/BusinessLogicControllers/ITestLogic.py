@@ -11,7 +11,7 @@ class ITestLogic(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    async def Create(self, aUser, aTest: TestViewModel) -> TestViewModel:
+    async def Create(self, aTest: TestViewModel) -> TestViewModel:
         pass
 
     @abstractmethod
