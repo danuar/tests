@@ -17,7 +17,8 @@ class AbstractModelView(object):
 
     @abstractmethod
     def CanBeUpdated(self) -> Validator:
-        pass
+        if self.id is None:
+            return Validator(type(self), "id", "Не заполнено id изменяемой сущности")
 
     def CanBeFind(self) -> Validator:
         if self.id is None:
@@ -257,25 +258,35 @@ class TestViewModel(AbstractModelView):
 
 class TheoryViewModel(AbstractModelView):
     @staticmethod
-    def Create(aName: str, tests: List[TestViewModel] = None, aStudyTime: datetime.datetime = None, ):
-        return TheoryViewModel(None, aName, aStudyTime, tests, [])
+    def Create(aName: str, creator, tests: List[TestViewModel] = None, aStudyTime: datetime.datetime = None):
+        return TheoryViewModel(None, aName, aStudyTime, tests, [], creator)
 
     @staticmethod
     def Update(aId: int, aName: str, aStudyTime: datetime.datetime = None):
-        return TheoryViewModel(aId, aName, aStudyTime, None, [])
+        return TheoryViewModel(aId, aName, aStudyTime, None, [], None)
+
+    @staticmethod
+    def GetFromId(aId):
+        return TheoryViewModel(aId, None, None, None, None, None)
 
     def CanBeCreated(self) -> Validator:
-        pass
+        if self.name is None or self.name == "":
+            return Validator(type(self), "name", "Не заполнено имя теории")
+        return Validator.default()
 
     def CanBeUpdated(self) -> Validator:
-        pass
+        super().CanBeUpdated()
+        if self.creator is not None:
+            return Validator(type(self), "creator", "Создатель теории не может быть изменен")
+        return Validator.default()
 
-    def __init__(self, id_, name, studyTime, tests, chapters):
+    def __init__(self, id_, name, studyTime, tests, chapters, creator):
         self.id: int = id_
         self.name: str = name
         self.studyTime: Optional[datetime.datetime] = studyTime
         self.tests: List[TestViewModel] = tests if tests is not None else []
         self.chapters: List[ChapterTheoryViewModel] = chapters
+        self.creator = creator
 
 
 class UserViewModel(AbstractModelView):

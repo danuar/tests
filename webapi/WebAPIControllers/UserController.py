@@ -17,7 +17,7 @@ from .DefineDepends import get_user
 class UserController(AbstractController):
 
     @post("/")
-    async def Authorize(self, user=Depends(get_user)) -> UserSchema:
+    async def Authorize(self, user_agent: str, user=Depends(get_user)) -> UserSchema:
         return user
 
     def __init__(self):

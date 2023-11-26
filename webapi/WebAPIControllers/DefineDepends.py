@@ -14,19 +14,25 @@ def get_user_logic() -> IUserLogic:
 
 
 async def get_async_session() -> AsyncSession:
-    async with DbSession().session.begin() as session:
-        DbSession().async_session = session
-        yield session
+    async with DbSession().session().begin() as session:
+        try:
+            DbSession().async_session = session
+            yield session
+        except Exception as e:
+            session.rollback()
+            raise e
 
 
 async def get_user(request: Request,
                    response: Response,
-                   user_agent: str,
+                   user_agent: Optional[str] = None,
                    token: Optional[str] = Cookie(default=None)) -> Optional[UserViewModel]:
     logic = get_user_logic()
     user = await logic.GetFromSession(token)
     if user is None:
+        if user_agent is None:
+            raise Exception("Не заполнен UserAgent")
         int_ipaddress = int(ipaddress.ip_address(request.client.host))
-        result = await logic.RegisterOrAuthorize(UserViewModel.Create(int_ipaddress, user_agent))
-        response.set_cookie("token", result.token)
-        return result
+        user = await logic.RegisterOrAuthorize(UserViewModel.Create(int_ipaddress, user_agent))
+        response.set_cookie("token", user.token)
+    return user

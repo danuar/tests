@@ -20,8 +20,8 @@ class BaseModel(Base):
 
 answer_user_by_answer_test = \
     Table('answer_user_by_answer_test', Base.metadata,
-          Column('answer_id', UUID(), ForeignKey('answers.id')),
-          Column('answer_test_id', UUID(), ForeignKey('answers_test.id')),
+          Column('answer_id', UUID(as_uuid=True), ForeignKey('answers.id')),
+          Column('answer_test_id', UUID(as_uuid=True), ForeignKey('answers_test.id')),
           )
 
 
@@ -29,7 +29,7 @@ class AnswerTest(BaseModel):
     __tablename__ = 'answers_test'
     text = Column(String(), nullable=False)
     correct = Column(Boolean(), nullable=False)
-    question_choice_id = Column(UUID(), ForeignKey("questions_choice.id"))
+    question_choice_id = Column(UUID(as_uuid=True), ForeignKey("questions_choice.id"))
     question_choice = relationship("QuestionChoice", lazy=False, back_populates="answers_test")
     answers = relationship("Answer", secondary=answer_user_by_answer_test, back_populates="answers_test")
 
@@ -48,9 +48,9 @@ class Answer(BaseModel):
     mark = Column(Integer(), nullable=True)
     text_answer = Column(String(), nullable=True)
     complition_time = Column(Time(), nullable=False)
-    result_test_id = Column(UUID(), ForeignKey('results_tests.id'))
+    result_test_id = Column(UUID(as_uuid=True), ForeignKey('results_tests.id'))
     result_test = relationship('ResultTest')
-    question_id = Column(UUID(), ForeignKey('questions.id'))
+    question_id = Column(UUID(as_uuid=True), ForeignKey('questions.id'))
     question = relationship("Question", back_populates="answers")
     answers_test = relationship("AnswerTest", secondary=answer_user_by_answer_test, back_populates="answers")
 
@@ -70,7 +70,7 @@ class Answer(BaseModel):
 class ChapterTheory(BaseModel):
     __tablename__ = "chapters_theory"
     name = Column(VARCHAR(64))
-    theory_id = Column(UUID(), ForeignKey('theories.id'))
+    theory_id = Column(UUID(as_uuid=True), ForeignKey('theories.id'))
     theory = relationship("Theory", lazy=False, back_populates="chapters")
     pointers_to_answer = relationship("PointerToAnswer", back_populates="chapter")
 
@@ -86,9 +86,9 @@ class ChapterTheory(BaseModel):
 
 class PointerToAnswer(BaseModel):
     __tablename__ = 'pointers_to_answer'
-    chapter_id = Column(UUID(), ForeignKey('chapters_theory.id'))
+    chapter_id = Column(UUID(as_uuid=True), ForeignKey('chapters_theory.id'))
     chapter = relationship('ChapterTheory', lazy=False, back_populates="pointers_to_answer")
-    question_id = Column(UUID(), ForeignKey('questions.id'))
+    question_id = Column(UUID(as_uuid=True), ForeignKey('questions.id'))
     question = relationship("Question", uselist=False, back_populates="pointer_to_answer")
     start = Column(Integer(), nullable=False)
     end = Column(Integer(), nullable=False)
@@ -110,9 +110,9 @@ class PointerToAnswer(BaseModel):
 
 class ResultTest(BaseModel):
     __tablename__ = 'results_tests'
-    user_id = Column(UUID(), ForeignKey('users.id'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'))
     user = relationship('User')
-    test_id = Column(UUID(), ForeignKey('tests.id'))
+    test_id = Column(UUID(as_uuid=True), ForeignKey('tests.id'))
     test = relationship('Test', lazy=False, back_populates="results_tests")
     note = Column(String(), nullable=True)
     start_date = Column(DateTime(), nullable=False, default=lambda: datetime.datetime.now())
@@ -136,10 +136,10 @@ class Test(BaseModel):
     __tablename__ = 'tests'
     completion_time = Column(Time(), nullable=True)
     name = Column(String(), nullable=False)
-    creator_id = Column(UUID(), ForeignKey('users.id'))
+    creator_id = Column(UUID(as_uuid=True), ForeignKey('users.id'))
     creator = relationship("User", back_populates="tests")
     count_attempts = Column(Integer(), nullable=True)
-    theory_id = Column(UUID(), ForeignKey('theories.id'))
+    theory_id = Column(UUID(as_uuid=True), ForeignKey('theories.id'))
     theory = relationship('Theory', back_populates="tests")
     shuffle = Column(Boolean(), nullable=False)
     show_answer = Column(Boolean(), nullable=False)
@@ -165,17 +165,22 @@ class Theory(BaseModel):
     __tablename__ = 'theories'
     name = Column(String(), nullable=False)
     study_time = Column(Time(), nullable=True)
-    tests = relationship("Test")
+    creator_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+
+    creator = relationship("User", lazy="selectin", back_populates="theories")
+    tests = relationship("Test", lazy=False, back_populates="theory")
     chapters = relationship("ChapterTheory", lazy=False, back_populates="theory")
 
     def GetViewModel(self) -> TheoryViewModel:
-        return TheoryViewModel(self.id, self.name, self.study_time, self.test.GetViewModel(),
-                               [i.GetViewModel() for i in self.chapters])
+        return TheoryViewModel(self.id, self.name, self.study_time, [i.GetViewModel() for i in self.tests],
+                               [i.GetViewModel() for i in self.chapters],
+                               creator=None if self.creator is None else self.creator.GetViewModel())
 
     @staticmethod
     def CreateFrom(theory: TheoryViewModel):
-        return Theory(id=theory.id, name=theory.name, study_time=theory.studyTime, tests=Test.CreateFrom(theory.tests),
-                      chapters=[ChapterTheory.CreateFrom(i) for i in theory.chapters])
+        return Theory(id=theory.id, name=theory.name, study_time=theory.studyTime,
+                      chapters=[ChapterTheory.CreateFrom(i) for i in theory.chapters],
+                      creator_id=theory.creator.id)
 
 
 class User(BaseModel):
@@ -184,6 +189,7 @@ class User(BaseModel):
     userAgent = Column(String(), nullable=False, unique=True)
     results_tests = relationship("ResultTest", lazy=False, back_populates="user")
     tests = relationship("Test", lazy=False, back_populates="creator")
+    theories = relationship("Theory", lazy=False, back_populates="creator")
 
     def GetViewModel(self) -> UserViewModel:
         return UserViewModel(self.id, self.ipAddress, self.userAgent, [i.GetViewModel() for i in self.tests],
@@ -201,7 +207,7 @@ class Question(BaseModel):
     name = Column(String(), nullable=False)
     complition_time = Column(Time(), nullable=True)
     weight = Column(Integer(), server_default='1')
-    test_id = Column(UUID(), ForeignKey('tests.id'))
+    test_id = Column(UUID(as_uuid=True), ForeignKey('tests.id'))
     test = relationship("Test", lazy=False, back_populates="questions")
     pointer_to_answer = relationship("PointerToAnswer", uselist=False, lazy=False, back_populates="question")
     answers = relationship("Answer")
@@ -228,7 +234,7 @@ class Question(BaseModel):
 
 class QuestionChoice(BaseModel):
     __tablename__ = 'questions_choice'
-    question_id = Column(UUID(), ForeignKey("questions.id"))
+    question_id = Column(UUID(as_uuid=True), ForeignKey("questions.id"))
     question = relationship("Question", uselist=False, back_populates="question_choice")
     answers_test = relationship("AnswerTest", lazy=False, back_populates="question_choice")
 
@@ -248,7 +254,7 @@ class QuestionInputAnswer(BaseModel):
     __tablename__ = 'questions_input_answer'
     correct_answer = Column(String(), nullable=False)
     k_misspell = Column(Float(), nullable=False)
-    question_id = Column(UUID(), ForeignKey('questions.id'))
+    question_id = Column(UUID(as_uuid=True), ForeignKey('questions.id'))
     question = relationship('Question', uselist=False, back_populates="question_input_answer")
 
     __table_args__ = (
@@ -268,7 +274,7 @@ class QuestionInputAnswer(BaseModel):
 
 class QuestionNotCheck(BaseModel):
     __tablename__ = 'questions_not_check'
-    question_id = Column(UUID(), ForeignKey('questions.id'))
+    question_id = Column(UUID(as_uuid=True), ForeignKey('questions.id'))
     question = relationship('Question', uselist=False, back_populates="question_not_check")
 
     def GetViewModel(self) -> QuestionNotCheckViewModel:

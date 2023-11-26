@@ -3,7 +3,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
-from webapi.ViewModel import TheoryViewModel, ChapterTheoryViewModel
+from webapi.ViewModel import TheoryViewModel, ChapterTheoryViewModel, UserViewModel
 
 
 class ITheoryLogic(object):
@@ -15,7 +15,7 @@ class ITheoryLogic(object):
         pass
 
     @abstractmethod
-    async def Update(self, aUser, aTheory: TheoryViewModel) -> TheoryViewModel:
+    async def Update(self, aTheory: TheoryViewModel) -> TheoryViewModel:
         pass
 
     @abstractmethod
@@ -23,7 +23,7 @@ class ITheoryLogic(object):
         pass
 
     @abstractmethod
-    async def GetAll(self) -> List[TheoryViewModel]:
+    async def GetAllFromUser(self, user: UserViewModel) -> List[TheoryViewModel]:
         pass
 
     @abstractmethod

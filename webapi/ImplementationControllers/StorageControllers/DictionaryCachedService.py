@@ -16,8 +16,8 @@ class DictionaryCachedService(ICachedService):
 
     def Get(self, aKey: str) -> object:
         value = self.cache[aKey]
-        if datetime.datetime.now() > value[0]:
-            raise Exception(f"Timeout cache {aKey=} {value=}")
+        if datetime.datetime.now() > value[0] + self.__lifeTimeCache:
+            raise KeyError(f"Timeout cache {aKey=} {value=}")
         return value[1]
 
     def Set(self, aKey: str, aValue: object) -> bool:
@@ -27,5 +27,5 @@ class DictionaryCachedService(ICachedService):
         self.result_last_operation = True
         try:
             return self.Get(aKey)
-        except Exception:
+        except KeyError:
             self.result_last_operation = False

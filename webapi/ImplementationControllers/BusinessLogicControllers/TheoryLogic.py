@@ -5,21 +5,21 @@ from typing import List
 from webapi.InterfacesControllers.BusinessLogicControllers.ITheoryLogic import ITheoryLogic
 from webapi.InterfacesControllers.StorageControllers.ITheoryRepository import ITheoryRepository
 from webapi.InterfacesControllers.StorageControllers.IUserRepository import IUserRepository
-from webapi.ViewModel import TheoryViewModel, ChapterTheoryViewModel
+from webapi.ViewModel import TheoryViewModel, ChapterTheoryViewModel, UserViewModel
 
 
 class TheoryLogic(ITheoryLogic):
     async def Create(self, aTheory: TheoryViewModel) -> TheoryViewModel:
-        pass
+        return await self._repository.Create(aTheory)
 
-    async def Update(self, aUser, aTheory: TheoryViewModel) -> TheoryViewModel:
-        pass
+    async def Update(self, aTheory: TheoryViewModel) -> TheoryViewModel:
+        return await self._repository.Update(aTheory)
 
     async def Get(self, aTheory: TheoryViewModel) -> TheoryViewModel:
-        pass
+        return await self._repository.Get(aTheory)
 
-    async def GetAll(self) -> List[TheoryViewModel]:
-        pass
+    async def GetAllFromUser(self, user: UserViewModel) -> List[TheoryViewModel]:
+        return await self._repository.GetAllFromUser(user)
 
     def LoadChapters(self, aTheory: TheoryViewModel, aPath) -> List[ChapterTheoryViewModel]:
         pass
@@ -28,5 +28,4 @@ class TheoryLogic(ITheoryLogic):
         pass
 
     def __init__(self):
-        self._repository: ITheoryRepository = None
-        self._userRepository: IUserRepository = None
+        self._repository: ITheoryRepository = ITheoryRepository.__subclasses__()[-1]()

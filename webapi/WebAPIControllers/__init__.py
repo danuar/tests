@@ -3,4 +3,4 @@ from .UserController import UserController
 # from .ChapterController import ChapterController
 # from .QuestionController import QuestionController
 # from .ResultTestController import ResultTestController
-# from .TheoryController import TheoryController
+from .TheoryController import TheoryController

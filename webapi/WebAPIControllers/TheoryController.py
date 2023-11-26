@@ -1,30 +1,43 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
-from BusinessLogicControllers import TheoryLogic
-from ViewModel import TheoryViewModel
+import uuid
 from typing import List
 
-class TheoryController(object):
-	def CreateTheoryPOST(self, aTest : TheoryViewModel) -> TheoryViewModel:
-		pass
+from classy_fastapi import post, get, put, delete
+from fastapi import Depends
 
-	def UpdateTheoryPUT(self, aId : integer, aTest : TheoryViewModel) -> TheoryViewModel:
-		pass
+from webapi.InterfacesControllers import ITheoryLogic
+from webapi.SchemasModel import TheorySchema
+from webapi.ViewModel import TheoryViewModel
+from webapi.WebAPIControllers.AbstractController import AbstractController
+from webapi.WebAPIControllers.DefineDepends import get_user
 
-	def GET(self, aId : int) -> TheoryViewModel:
-		pass
 
-	def pdfGET(self, aId : int) -> File:
-		pass
+class TheoryController(AbstractController):
+    @post("/theory")
+    async def create_new_theory(self, theory: TheorySchema, user=Depends(get_user)) -> TheoryViewModel:
+        return await self._logic.Create(TheoryViewModel.Create(theory.name, user, aStudyTime=theory.studyTime))
 
-	def htmlChaptersGET(self, aId : int) -> File*:
-		pass
+    @put("/theory")
+    async def update_theory_from_id(self, aId: uuid.UUID, theory: TheorySchema) -> TheoryViewModel:
+        return await self._logic.Update(TheoryViewModel.Update(aId, theory.name, theory.studyTime))
 
-	def TheoriesGET(self) -> TheoryViewModel*:
-		pass
+    @get("/theory")
+    async def get_theory_from_id(self, aId: uuid.UUID) -> TheoryViewModel:
+        return await self._logic.Get(TheoryViewModel.GetFromId(aId))
 
-	def __init__(self):
-		self.___logic : TheoryLogic = None
-		self._unnamed_TheoryLogic_ : TheoryLogic = None
-		"""# @AssociationKind Composition"""
+    @get("/pdf")
+    async def get_theory_in_format_pdf(self, aId: uuid.UUID):
+        pass
 
+    @get("/chapters_html")
+    async def get_chapter_in_format_list_html_documents(self, aId: uuid.UUID):
+        pass
+
+    @get("/theories")
+    async def get_available_theories(self, user=Depends(get_user)) -> List[TheoryViewModel]:
+        return await self._logic.GetAllFromUser(user)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._logic: ITheoryLogic = ITheoryLogic.__subclasses__()[-1]()
