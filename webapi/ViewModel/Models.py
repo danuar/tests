@@ -272,8 +272,9 @@ class TestViewModel(AbstractModelView):
 
 class TheoryViewModel(AbstractModelView):
     @staticmethod
-    def Create(aName: str, creator, tests: List[TestViewModel] = None, aStudyTime: datetime.datetime = None):
-        return TheoryViewModel(None, aName, aStudyTime, tests, [], creator)
+    def Create(aName: str, creator, tests: List[TestViewModel] = None, aStudyTime: datetime.datetime = None,
+               chapters: list[ChapterTheoryViewModel] = None):
+        return TheoryViewModel(None, aName, aStudyTime, tests, [] if chapters is None else chapters, creator)
 
     @staticmethod
     def Update(aId: int, aName: str, aStudyTime: datetime.datetime = None):

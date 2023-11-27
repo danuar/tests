@@ -31,7 +31,7 @@ class TheoryController(AbstractController):
         pass
 
     @get("/chapters_html")
-    async def get_chapter_in_format_list_html_documents(self, aId: uuid.UUID):
+    async def get_chapters_in_format_list_html_documents(self, aId: uuid.UUID):
         pass
 
     @get("/theories")

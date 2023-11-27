@@ -81,8 +81,8 @@ class ChapterTheory(BaseModel):
 
     @staticmethod
     def CreateFrom(chapter: ChapterTheoryViewModel):
-        return ChapterTheory(id=chapter.id, name=chapter.name,
-                             theory=Theory.CreateFrom(chapter.theory) if chapter.theory.id is None else None,
+        theory = Theory.CreateFrom(chapter.theory) if chapter.theory is not None and chapter.theory.id is None else None
+        return ChapterTheory(id=chapter.id, name=chapter.name, theory=theory,
                              pointers_to_answer=[PointerToAnswer.CreateFrom(i) for i in chapter.pointers])
 
 

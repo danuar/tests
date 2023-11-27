@@ -16,10 +16,10 @@ class TheorySchema(BaseModel, TheoryViewModel):
     name: str
     studyTime: Optional[datetime.time]
 
-    class ChapterSchema(BaseModel, ChapterTheoryViewModel):
+    class WTChapterTheorySchema(BaseModel):
         name: str
 
-    chapters: list[Union[uuid.UUID, ChapterSchema]]
+    chapters: Optional[list[WTChapterTheorySchema]] = Field(default_factory=lambda: [])
 
 
 class ChapterTheorySchema(BaseModel, ChapterTheoryViewModel):

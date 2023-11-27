@@ -28,7 +28,7 @@ class TestRepository(ITestRepository, AbstractDbRepository):
         self.session.add(test)
         await self.session.commit()
 
-        return (await self.session.get(Test, test.id)).GetViewModel()
+        return (await self.session.get(Test, test.id)).GetViewModel(load_user=False)
 
     async def Update(self, aUser: UserViewModel, aTest: TestViewModel) -> TestViewModel:
         aTest.CanBeUpdated().raiseValidateException()
