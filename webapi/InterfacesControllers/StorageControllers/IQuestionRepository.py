@@ -3,7 +3,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
-from webapi.ViewModel import QuestionViewModel, TestViewModel
+from webapi.ViewModel import QuestionViewModel, TestViewModel, UserViewModel
 
 
 class IQuestionRepository(object):
@@ -11,15 +11,15 @@ class IQuestionRepository(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    async def Create(self, aQuestion: QuestionViewModel) -> QuestionViewModel:
+    async def Create(self, user: UserViewModel, aQuestion: QuestionViewModel) -> QuestionViewModel:
         pass
 
     @abstractmethod
-    async def Update(self, aQuestion: QuestionViewModel) -> QuestionViewModel:
+    async def Update(self, user: UserViewModel, aQuestion: QuestionViewModel) -> QuestionViewModel:
         pass
 
     @abstractmethod
-    async def Delete(self, aQuestion: QuestionViewModel) -> QuestionViewModel:
+    async def Delete(self, user: UserViewModel, aQuestion: QuestionViewModel) -> QuestionViewModel:
         pass
 
     @abstractmethod
@@ -27,7 +27,7 @@ class IQuestionRepository(object):
         pass
 
     @abstractmethod
-    async def DeletePointerFromQuestion(self, aQuestion: QuestionViewModel) -> QuestionViewModel:
+    async def DeletePointerFromQuestion(self, user: UserViewModel, aQuestion: QuestionViewModel) -> QuestionViewModel:
         pass
 
     @abstractmethod

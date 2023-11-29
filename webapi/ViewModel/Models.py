@@ -43,6 +43,10 @@ class AnswerTestViewModel(AbstractModelView):
     def CanBeUpdated(self) -> Validator:
         pass
 
+    @classmethod
+    def CreateInQuestion(cls, text, is_correct):
+        return AnswerTestViewModel(None, None, text, is_correct, [])
+
     def __init__(self, id_, question, text, is_correct, answers):
         self.id: int = id_
         self.question: QuestionChoiceViewModel = question
@@ -151,9 +155,9 @@ class PointerToAnswerViewModel(AbstractModelView):
 
 
 class QuestionViewModel(AbstractModelView):
-    @staticmethod
-    def Create(aName: str, aWeight, aComplitionTime, aTest):
-        return QuestionViewModel(None, aName, aComplitionTime, None, aTest, aWeight)
+    @classmethod
+    def Create(cls, aName: str, aWeight, aComplitionTime, aTest):
+        return cls(None, aName, aComplitionTime, None, aTest, aWeight)
 
     @staticmethod
     def Update(aId: int, aName: str, aWeight, aComplitionTime):
@@ -181,26 +185,33 @@ class QuestionViewModel(AbstractModelView):
         self.pointer: PointerToAnswerViewModel = pointer
         self.test: TestViewModel = test
 
+    @classmethod
+    def GetFromId(cls, aId):
+        return QuestionViewModel(aId, None, None, None, None)
+
 
 class QuestionChoiceViewModel(QuestionViewModel):
     def AddAnswers(self, aAnswers: List[AnswerTestViewModel]):
         self.answers_test.extend(aAnswers)
         return self
 
-    def __init__(self, id_, name, complition_time, pointer, test, answers: List[AnswerTestViewModel],
+    def __init__(self, id_, name, complition_time, pointer, test,
                  weight: Optional[int] = None):
         super().__init__(id_, name, complition_time, pointer, test, weight)
-        self.answers_test = answers
+        self.answers_test = []
 
 
 class QuestionInputAnswerViewModel(QuestionViewModel):
-    @staticmethod
-    def Create(aCorrectAnswer, aKMisspell: float, aName: str, aComplitionTime, aTest,
-               weight: Optional[float] = None) -> QuestionViewModel:
-        return QuestionInputAnswerViewModel(aName, aComplitionTime, None, aTest, weight, aCorrectAnswer, aKMisspell)
+    def SetKMisspell(self, k: float):
+        self.k_misspell = k
+        return self
 
-    def __init__(self, id_, name, complition_time, pointer, test, correctAnswer, k_misspell,
-                 weight: Optional[float] = None):
+    def SetCorrectAnswer(self, text_answer: str):
+        self.correctAnswer = text_answer
+        return self
+
+    def __init__(self, id_, name, complition_time, pointer, test,
+                 weight: Optional[float] = None, correctAnswer=None, k_misspell=1):
         super().__init__(id_, name, complition_time, pointer, test, weight)
         self.correctAnswer: str = correctAnswer
         self.k_misspell: float = k_misspell
@@ -253,13 +264,22 @@ class TestViewModel(AbstractModelView):
     def GetFromId(aId: uuid.UUID):
         return TestViewModel.Update(aId, None)
 
+    def SetCreator(self, user: 'UserViewModel'):
+        self.theory.creator = user  # если будет создана теория вместе с тестом
+        self.user = user
+        return self
+
+    def AddQuestions(self, questions):
+        self.questions.extend(questions)
+        return self
+
     def CanBeCreated(self) -> Validator:
         return Validator.default()  # todo реализовать валидацию всех моделей
 
     def CanBeUpdated(self) -> Validator:
         return Validator.default()
 
-    def __init__(self, id_, complitionTime, name, countAttempts, user, theory, shuffle, showAnswer):
+    def __init__(self, id_, complitionTime, name, countAttempts, user, theory, shuffle, showAnswer, questions=None):
         self.id: int = id_
         self.complitionTime: datetime.datetime = complitionTime
         self.name: str = name
@@ -268,6 +288,7 @@ class TestViewModel(AbstractModelView):
         self.theory: TheoryViewModel = theory
         self.shuffle: bool = shuffle
         self.showAnswer: bool = showAnswer
+        self.questions: list[QuestionViewModel] = questions if questions else []
 
 
 class TheoryViewModel(AbstractModelView):
@@ -353,4 +374,3 @@ class UserViewModel(AbstractModelView):
         if self.ipAddress is not None:
             return str(ipaddress.ip_address(self.ipAddress))
         return None
-

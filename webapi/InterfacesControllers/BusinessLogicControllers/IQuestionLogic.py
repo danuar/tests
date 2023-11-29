@@ -11,7 +11,7 @@ class IQuestionLogic(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    async def Create(self, aQuestion: QuestionViewModel) -> QuestionViewModel:
+    async def Create(self, aUser, aQuestion: QuestionViewModel) -> QuestionViewModel:
         pass
 
     @abstractmethod

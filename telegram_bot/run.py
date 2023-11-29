@@ -6,6 +6,9 @@ import operator
 import os
 import sys
 import time
+import uuid
+import datetime
+import random
 from functools import reduce
 
 from PyQt5.QtChart import QChart

@@ -18,19 +18,12 @@ class TestController(AbstractController):
 
     @post("/test")
     async def create_new_test(self, test: TestSchema, user=Depends(get_user)) -> TestViewModel:
-        if isinstance(test.theory, TheoryViewModel):
-            theory = test.theory
-            theory = (TheoryViewModel
-                      .Create(theory.name, user, aStudyTime=theory.studyTime,
-                              chapters=[ChapterTheoryViewModel.Create(i.name, None) for i in theory.chapters]))
-        else:
-            theory = TheoryViewModel.GetFromId(test.theory)
-        return await self._logic.Create(TestViewModel.Create(test.name, test.count_attempts, test.shuffle,
-                                                             test.show_answer, user, theory, test.complition_time))
+        return await self._logic.Create(test.GetViewModel().SetCreator(user))
 
     @put("/test")
     async def update_own_test(self, aId: uuid.UUID, aTest: TestUpdateSchema, user=Depends(get_user)) -> TestViewModel:
-        return await self._logic.Update(user, TestViewModel.Update(aId, aTest.name))
+        return await self._logic.Update(user, TestViewModel.Update(aId, aTest.name)
+                                        .AddQuestions([i.GetViewModel() for i in aTest.questions]))
 
     @get("/created_test")
     async def get_created_test(self, user=Depends(get_user)) -> List[TestViewModel]:

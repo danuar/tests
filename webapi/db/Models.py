@@ -30,12 +30,14 @@ class AnswerTest(BaseModel):
     text = Column(String(), nullable=False)
     correct = Column(Boolean(), nullable=False)
     question_choice_id = Column(UUID(as_uuid=True), ForeignKey("questions_choice.id"))
-    question_choice = relationship("QuestionChoice", lazy=False, back_populates="answers_test")
+    question_choice = relationship("QuestionChoice", back_populates="answers_test")
     answers = relationship("Answer", secondary=answer_user_by_answer_test, back_populates="answers_test")
 
-    def GetViewModel(self) -> AnswerTestViewModel:
-        return AnswerTestViewModel(self.id, self.question_choice.GetViewModel(), self.text, self.correct,
-                                   [i.GetViewModel() for i in self.answers])
+    def GetViewModel(self, load_question=True) -> AnswerTestViewModel:
+        return AnswerTestViewModel(self.id,
+                                   self.question_choice.GetViewModel() if load_question else None,
+                                   self.text, self.correct,
+                                   [i.GetViewModel() for i in self.answers] if 'answers' in self.__dict__ else None)
 
     @staticmethod
     def CreateFrom(answer: AnswerTestViewModel):
@@ -74,10 +76,12 @@ class ChapterTheory(BaseModel):
     theory = relationship("Theory", lazy=False, back_populates="chapters")
     pointers_to_answer = relationship("PointerToAnswer", lazy=False, back_populates="chapter")
 
-    def GetViewModel(self, load_theory=True) -> ChapterTheoryViewModel:
+    def GetViewModel(self, load_theory=True, load_pointers=False, load_user=False) -> ChapterTheoryViewModel:
         return ChapterTheoryViewModel(id_=self.id, name=self.name,
-                                      theory=self.theory.GetViewModel() if load_theory else None,
-                                      pointers=[i.GetViewModel() for i in self.pointers_to_answer])
+                                      theory=self.theory.GetViewModel(load_user=load_user,
+                                                                      load_chapters=False) if load_theory else None,
+                                      pointers=[i.GetViewModel() for i in
+                                                self.pointers_to_answer] if load_pointers else None)
 
     @staticmethod
     def CreateFrom(chapter: ChapterTheoryViewModel):
@@ -89,7 +93,7 @@ class ChapterTheory(BaseModel):
 class PointerToAnswer(BaseModel):
     __tablename__ = 'pointers_to_answer'
     chapter_id = Column(UUID(as_uuid=True), ForeignKey('chapters_theory.id'))
-    chapter = relationship('ChapterTheory', lazy=False, back_populates="pointers_to_answer")
+    chapter = relationship('ChapterTheory', uselist=False, lazy=False, back_populates="pointers_to_answer")
     question_id = Column(UUID(as_uuid=True), ForeignKey('questions.id'))
     question = relationship("Question", uselist=False, back_populates="pointer_to_answer")
     start = Column(Integer(), nullable=False)
@@ -100,14 +104,24 @@ class PointerToAnswer(BaseModel):
         CheckConstraint('"end" >= 0', name='end_check'),
     )
 
-    def GetViewModel(self) -> PointerToAnswerViewModel:
-        return PointerToAnswerViewModel(self.id, self.start, self.end, self.chapter.GetViewModel(),
-                                        self.question.GetViewModel())
+    def GetViewModel(self, load_question=True, load_chapter=True) -> PointerToAnswerViewModel:
+        return PointerToAnswerViewModel(self.id, self.start, self.end,
+                                        self.chapter.GetViewModel(load_pointers=False,
+                                                                  load_theory=False) if load_chapter and 'chapter' in self.__dict__ else None,
+                                        self.question.GetViewModel() if load_question else None)
 
     @staticmethod
     def CreateFrom(ptr: PointerToAnswerViewModel):
-        return PointerToAnswer(id=ptr.id, chapter=ChapterTheory.CreateFrom(ptr.chapter),
-                               start=ptr.start, end=ptr.end, question=Question.CreateFrom(ptr.question))
+        res = PointerToAnswer(id=ptr.id, start=ptr.start, end=ptr.end)
+        if ptr.question is not None and ptr.question.id is None:
+            res.question = Question.CreateFrom(ptr.question)
+        elif ptr.question is not None:
+            res.question_id = ptr.question.id
+        if ptr.chapter is not None and ptr.chapter.id is None:
+            res.chapter = ChapterTheory.CreateFrom(ptr.chapter)
+        elif ptr.chapter is not None:
+            res.chapter_id = ptr.chapter.id
+        return res
 
 
 class ResultTest(BaseModel):
@@ -156,14 +170,15 @@ class Test(BaseModel):
         return TestViewModel(self.id, self.completion_time, self.name, self.count_attempts,
                              self.user.GetViewModel() if load_user else None,
                              self.theory.GetViewModel(load_user=load_user) if load_theory else None,
-                             self.shuffle, self.show_answer)
+                             self.shuffle, self.show_answer, [i.GetViewModel(load_test=False) for i in self.questions])
 
     @staticmethod
     def CreateFrom(test: TestViewModel):
         return Test(id=test.id, name=test.name, completion_time=test.complitionTime, count_attempts=test.countAttempts,
                     creator_id=test.user.id,
                     theory=Theory.CreateFrom(test.theory) if test.theory.id is None else None,
-                    shuffle=test.shuffle, show_answer=test.showAnswer)
+                    shuffle=test.shuffle, show_answer=test.showAnswer,
+                    questions=[Question.get_type_in_db(q).CreateFrom(q).question for q in test.questions])
 
 
 class Theory(BaseModel):
@@ -172,14 +187,15 @@ class Theory(BaseModel):
     study_time = Column(Time(), nullable=True)
     creator_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
 
-    creator = relationship("User", lazy="selectin", back_populates="theories")
-    tests = relationship("Test", lazy=False, back_populates="theory")
+    creator = relationship("User", back_populates="theories")
+    tests = relationship("Test", back_populates="theory")
     chapters = relationship("ChapterTheory", lazy=False, back_populates="theory")
 
-    def GetViewModel(self, load_user=True) -> TheoryViewModel:
+    def GetViewModel(self, load_user=True, load_chapters=True) -> TheoryViewModel:
+        creator = self.creator.GetViewModel() if load_user and 'creator' in self.__dict__ else None
         return TheoryViewModel(self.id, self.name, self.study_time, [],
-                               [i.GetViewModel(load_theory=False) for i in self.chapters],
-                               creator=self.creator.GetViewModel() if self.creator and load_user else None)
+                               [i.GetViewModel(load_theory=False) for i in self.chapters] if load_chapters else None,
+                               creator=creator)
 
     @staticmethod
     def CreateFrom(theory: TheoryViewModel):
@@ -192,14 +208,15 @@ class User(BaseModel):
     __tablename__ = 'users'
     ipAddress = Column(String(), nullable=False, unique=True)
     userAgent = Column(String(), nullable=False, unique=True)
-    results_tests = relationship("ResultTest", lazy=False, back_populates="user")
-    tests = relationship("Test", lazy=False, back_populates="creator")
-    theories = relationship("Theory", lazy=False, back_populates="creator")
 
-    def GetViewModel(self) -> UserViewModel:
+    results_tests = relationship("ResultTest", back_populates="user")
+    tests = relationship("Test", back_populates="creator")
+    theories = relationship("Theory", back_populates="creator")
+
+    def GetViewModel(self, load_test=False, load_results=False) -> UserViewModel:
         return UserViewModel(self.id, self.ipAddress, self.userAgent,
-                             [i.GetViewModel(load_user=False) for i in self.tests],
-                             [i.GetViewModel() for i in self.results_tests])
+                             [i.GetViewModel(load_user=False) for i in self.tests] if load_test else None,
+                             [i.GetViewModel() for i in self.results_tests] if load_results else None)
 
     @staticmethod
     def CreateFrom(user: UserViewModel):
@@ -215,7 +232,7 @@ class Question(BaseModel):
     weight = Column(Integer(), server_default='1')
     test_id = Column(UUID(as_uuid=True), ForeignKey('tests.id'))
     test = relationship("Test", lazy=False, back_populates="questions")
-    pointer_to_answer = relationship("PointerToAnswer", uselist=False, lazy=False, back_populates="question")
+    pointer_to_answer = relationship("PointerToAnswer", uselist=False, lazy='selectin', back_populates="question")
     answers = relationship("Answer")
 
     question_choice = relationship("QuestionChoice", uselist=False, back_populates="question")
@@ -226,34 +243,60 @@ class Question(BaseModel):
         CheckConstraint('weight > 0', name='weight_check'),
     )
 
-    def GetViewModel(self) -> QuestionViewModel:
-        return QuestionViewModel(self.id, self.name, self.complition_time,
-                                 PointerToAnswer.CreateFrom(self.pointer_to_answer), self.test,
-                                 self.weight)
+    def GetViewModel(self, load_test=True) -> QuestionViewModel:
+        ptr = self.pointer_to_answer
+        args = (self.id, self.name, self.complition_time,
+                ptr.GetViewModel(load_question=False) if ptr else None,
+                (self.test.GetViewModel(load_user=False, load_theory=True) if load_test and 'test' in self.__dict__ else None),
+                self.weight if 'weight' in self.__dict__ else 1)
+        if 'question_not_check' in self.__dict__:
+            return QuestionNotCheckViewModel(*args)
+        if 'question_choice' in self.__dict__:
+            return (QuestionChoiceViewModel(*args)
+                    .AddAnswers([i.GetViewModel(load_question=False) for i in self.question_choice.answers_test]))
+        if 'question_input_answer' in self.__dict__:
+            return (QuestionInputAnswerViewModel(*args)
+                    .SetCorrectAnswer(self.question_input_answer.correct_answer)
+                    .SetKMisspell(self.question_input_answer.k_misspell))
+        return QuestionViewModel(*args)
+
+    @staticmethod
+    def get_type_in_db(question: QuestionViewModel):
+        return {
+            isinstance(question, QuestionChoiceViewModel): QuestionChoice,
+            isinstance(question, QuestionInputAnswerViewModel): QuestionInputAnswer,
+            isinstance(question, QuestionNotCheckViewModel): QuestionNotCheck,
+        }.get(True, Question)
 
     @staticmethod
     def CreateFrom(q: QuestionViewModel):
-        return Question(id=q.id, name=q.name, complition_time=q.complitionTime,
+        if q.test is None:
+            kwarg = {}
+        elif q.test.id is None:
+            kwarg = {"test": Test.CreateFrom(q.test)}
+        else:
+            kwarg = {"test_id": q.test.id}
+        return Question(id=q.id, name=q.name, complition_time=q.complitionTime, weight=q.weight,
                         pointer_to_answer=PointerToAnswer.CreateFrom(q.pointer),
-                        test=Test.CreateFrom(q.test), weight=q.weight)
+                        **kwarg
+                        )
 
 
 class QuestionChoice(BaseModel):
     __tablename__ = 'questions_choice'
     question_id = Column(UUID(as_uuid=True), ForeignKey("questions.id"))
-    question = relationship("Question", uselist=False, back_populates="question_choice")
+    question = relationship("Question", lazy=False, uselist=False, back_populates="question_choice")
     answers_test = relationship("AnswerTest", lazy=False, back_populates="question_choice")
 
     def GetViewModel(self) -> QuestionChoiceViewModel:
-        q: Question = self.question
-        return QuestionChoiceViewModel(self.id, q.name, q.complition_time,
-                                       PointerToAnswer.CreateFrom(self.pointer_to_answer), q.test, q.weight,
-                                       self.answers_test)
+        return self.question.GetViewModel()
 
     @staticmethod
     def CreateFrom(q: QuestionChoiceViewModel):
-        return QuestionChoice(id=q.id, question=Question.CreateFrom(q),
-                              answers_test=[AnswerTest.CreateFrom(i) for i in q.answers_test])
+        res = QuestionChoice(id=q.id, question=Question.CreateFrom(q),
+                             answers_test=[AnswerTest.CreateFrom(i) for i in q.answers_test])
+        res.question.question_choice = res
+        return res
 
 
 class QuestionInputAnswer(BaseModel):
@@ -268,26 +311,26 @@ class QuestionInputAnswer(BaseModel):
     )
 
     def GetViewModel(self) -> QuestionViewModel:
-        q: Question = self.question
-        return QuestionInputAnswerViewModel(self.id, q.name, q.complition_time, q.pointer_to_answer, q.test,
-                                            self.correct_answer, self.k_misspell, q.weight)
+        return self.question.GetViewModel()
 
     @staticmethod
     def CreateFrom(q: QuestionInputAnswerViewModel):
-        return QuestionInputAnswer(id=q.id, question=Question.CreateFrom(q), k_misspell=q.k_misspell,
-                                   correct_answer=q.correctAnswer)
+        res = QuestionInputAnswer(id=q.id, question=Question.CreateFrom(q), k_misspell=q.k_misspell,
+                                  correct_answer=q.correctAnswer)
+        res.question.question_input_answer = res
+        return res
 
 
 class QuestionNotCheck(BaseModel):
     __tablename__ = 'questions_not_check'
     question_id = Column(UUID(as_uuid=True), ForeignKey('questions.id'))
-    question = relationship('Question', uselist=False, back_populates="question_not_check")
+    question = relationship('Question', uselist=False, lazy=False, back_populates="question_not_check")
 
     def GetViewModel(self) -> QuestionNotCheckViewModel:
-        q: Question = self.question
-        return QuestionNotCheckViewModel(self.id, q.name, q.complition_time, q.pointer_to_answer, q.test,
-                                         q.weight)
+        return self.question.GetViewModel()
 
     @staticmethod
     def CreateFrom(q: QuestionNotCheckViewModel):
-        return QuestionNotCheck(id=q.id, question=Question.CreateFrom(q))
+        res = QuestionNotCheck(id=q.id, question=Question.CreateFrom(q))
+        res.question.question_not_check = res
+        return res

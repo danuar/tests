@@ -16,7 +16,7 @@ from webapi.WebAPIControllers.DefineDepends import get_user
 class TheoryController(AbstractController):
     @post("/theory")
     async def create_new_theory(self, theory: TheorySchema, user=Depends(get_user)) -> TheoryViewModel:
-        return await self._logic.Create(TheoryViewModel.Create(theory.name, user, aStudyTime=theory.studyTime))
+        return await self._logic.Create(theory.GetViewModel().SetCreator(user))
 
     @put("/theory")
     async def update_theory_by_id(self, aId: uuid.UUID, theory: TheorySchema, user=Depends(get_user)) -> TheoryViewModel:
