@@ -8,7 +8,7 @@ import time
 from functools import reduce
 from multiprocessing import Process
 from threading import Thread
-from typing import List
+from typing import List, Tuple
 
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtChart import QChartView, QChart, QPieSeries, QPercentBarSeries, QBarCategoryAxis, QBarSet
@@ -18,8 +18,6 @@ from PyQt5.QtWidgets import *
 
 from desktop_app.TheoryWidgets import *
 from desktop_app.ViewQuestion import *
-from db import *
-from logicsDB import UserLogic, TestLogic, ResultTestLogic
 from solve_resource_one_exe import resource_path
 
 
@@ -31,11 +29,11 @@ def sum_time(times: list[datetime.time]):
 
 
 class CreateTestWidget(QWidget):
-    created_test = pyqtSignal(Test)
+    created_test = pyqtSignal(TestViewModel)
 
-    def __init__(self, theories: List[Theory], parent=None):
+    def __init__(self, theories: List[TheoryViewModel], parent=None):
         super().__init__(parent)
-        self.test: Optional[Test] = None
+        self.test: Optional[TestViewModel] = None
         self.question_vlayouts = []
         self.question_complition_times = []
         self.question_weights = []
@@ -316,7 +314,7 @@ class CreateTestWidget(QWidget):
 
 
 class RunTestWidget(QDialog):
-    def __init__(self, test: Test, parent: QWidget = None):
+    def __init__(self, test: TestViewModel, parent: QWidget = None):
         super().__init__(parent)
         self.is_need_open_result = False
         self.timer_test: Optional[QTimer] = None
@@ -541,7 +539,7 @@ class RunTestWidget(QDialog):
         self.result_test.answers.append(answer)
         ResultTestLogic().save()
 
-    def _save_question_choice(self, question: Question, answer: Answer):
+    def _save_question_choice(self, question: QuestionViewModel, answer: AnswerViewModel):
         assert question.question_choice, "Передан неправильный тип вопроса"
         count_correct = current_count_correct = 0
         for i, answer_test in enumerate(question.question_choice.answers_test):
@@ -601,7 +599,7 @@ class RunTestWidget(QDialog):
 
 
 class ViewResultTestQuestion(QWidget):
-    def __init__(self, result_test: ResultTest, parent: QWidget = None, show_answer: bool = False):
+    def __init__(self, result_test: ResultTestViewModel, parent: QWidget = None, show_answer: bool = False):
         super().__init__(parent)
         self.setWindowTitle(f'Просмотр ответов на тест "{result_test.test.name}"')
         self.result_test = result_test
@@ -695,7 +693,7 @@ class ViewResultTestQuestion(QWidget):
 class ViewResultTest(QWidget):
     changed_note = pyqtSignal(str)
 
-    def __init__(self, result_test: ResultTest, parent: QWidget = None):
+    def __init__(self, result_test: ResultTestViewModel, parent: QWidget = None):
         super(ViewResultTest, self).__init__(parent)
         self.result_test = result_test
         self.is_allowed_show_answer = False
@@ -778,7 +776,7 @@ class ViewResultTest(QWidget):
         chartview.setRenderHint(QPainter.Antialiasing)
         return chartview
 
-    def get_marks(self, answers: list[Answer]) -> tuple[int, int, int]:
+    def get_marks(self, answers: list[AnswerViewModel]) -> tuple[int, int, int]:
         current_mark = sum(i.mark for i in answers if i.mark)
         all_mark = sum(i.question.weight for i in answers)
         not_check_mark = sum(i.question.weight for i in answers if i.mark is None)
@@ -959,7 +957,7 @@ class ViewResultsTests(QTableWidget):
 class VerifyNotCheckQuestions(QWidget):
     verifyed = pyqtSignal()
 
-    def __init__(self, result_test: ResultTest, parent: QWidget = None):
+    def __init__(self, result_test: ResultTestViewModel, parent: QWidget = None):
         super().__init__(parent)
         self.setWindowTitle(f'Ручная проверка теста "{result_test.test.name}"')
         self.result_test = result_test
@@ -1184,13 +1182,13 @@ class MainWindow(QWidget):
         layout.addWidget(list_view)
         return w
 
-    def _create_test_item(self, result_test: ResultTest):
+    def _create_test_item(self, result_test: ResultTestViewModel):
         item = QStandardItem()
         self._set_text_test_item(item, result_test)
         item.setEditable(False)
         return item
 
-    def _set_text_test_item(self, item: QStandardItem, result_test: ResultTest):
+    def _set_text_test_item(self, item: QStandardItem, result_test: ResultTestViewModel):
         note = result_test.note if result_test.note is not None else ""
         text = f"{result_test.test.name}: {result_test.completed_date:%c} - {note}"
         if text != item.text():
@@ -1232,7 +1230,7 @@ class MainWindow(QWidget):
         self.completed_test_widget = ViewResultsTests(False)
         self.completed_test_widget.show()
 
-    def show_theory_window(self, _=None, theory: Optional[Theory] = None):
+    def show_theory_window(self, _=None, theory: Optional[TheoryViewModel] = None):
         self.theory = TheoryTabWidget(theory)
         self.theory.changedTheories.connect(self.load_theories)
         self.theory.show()

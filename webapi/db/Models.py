@@ -137,13 +137,14 @@ class ResultTest(BaseModel):
     answers = relationship("Answer", lazy=False, back_populates="result_test")
 
     def GetViewModel(self) -> ResultTestViewModel:
-        return ResultTestViewModel(self.id, self.user.GetViewModel(), self.test.GetViewModel(),
+        return ResultTestViewModel(self.id, self.user.GetViewModel() if 'user' in self.__dict__ else None,
+                                   self.test.GetViewModel(load_user=False, load_theory=False),
                                    [i.GetViewModel() for i in self.answers],
                                    self.start_date, self.completed_date, self.note)
 
     @staticmethod
     def CreateFrom(rt: ResultTestViewModel):
-        return ResultTest(id=rt.id, user=User.CreateFrom(rt.user), test=Test.CreateFrom(rt.test),
+        return ResultTest(id=rt.id, user_id=rt.user.id, test_id=rt.test.id,
                           note=rt.note, start_date=rt.startDate,
                           completed_date=rt.completedDate, answers=[Answer.CreateFrom(i) for i in rt.answers])
 
@@ -168,8 +169,8 @@ class Test(BaseModel):
 
     def GetViewModel(self, load_user=True, load_theory=True) -> TestViewModel:
         return TestViewModel(self.id, self.completion_time, self.name, self.count_attempts,
-                             self.user.GetViewModel() if load_user else None,
-                             self.theory.GetViewModel(load_user=load_user) if load_theory else None,
+                             self.creator.GetViewModel() if load_user else None,
+                             self.theory.GetViewModel(load_user=load_user) if load_theory and 'theory' in self.__dict__ else None,
                              self.shuffle, self.show_answer, [i.GetViewModel(load_test=False) for i in self.questions])
 
     @staticmethod
@@ -215,8 +216,8 @@ class User(BaseModel):
 
     def GetViewModel(self, load_test=False, load_results=False) -> UserViewModel:
         return UserViewModel(self.id, self.ipAddress, self.userAgent,
-                             [i.GetViewModel(load_user=False) for i in self.tests] if load_test else None,
-                             [i.GetViewModel() for i in self.results_tests] if load_results else None)
+                             [i.GetViewModel(load_user=False) for i in self.tests] if load_test else [],
+                             [i.GetViewModel() for i in self.results_tests] if load_results else [])
 
     @staticmethod
     def CreateFrom(user: UserViewModel):
@@ -249,15 +250,16 @@ class Question(BaseModel):
                 ptr.GetViewModel(load_question=False) if ptr else None,
                 (self.test.GetViewModel(load_user=False, load_theory=True) if load_test and 'test' in self.__dict__ else None),
                 self.weight if 'weight' in self.__dict__ else 1)
-        if 'question_not_check' in self.__dict__:
+        if 'question_not_check' in self.__dict__ and self.question_not_check is not None:
             return QuestionNotCheckViewModel(*args)
-        if 'question_choice' in self.__dict__:
+        if 'question_choice' in self.__dict__ and self.question_choice is not None:
             return (QuestionChoiceViewModel(*args)
                     .AddAnswers([i.GetViewModel(load_question=False) for i in self.question_choice.answers_test]))
-        if 'question_input_answer' in self.__dict__:
+        if 'question_input_answer' in self.__dict__ and self.question_input_answer:
             return (QuestionInputAnswerViewModel(*args)
                     .SetCorrectAnswer(self.question_input_answer.correct_answer)
                     .SetKMisspell(self.question_input_answer.k_misspell))
+        raise Exception("Not supported type question")
         return QuestionViewModel(*args)
 
     @staticmethod

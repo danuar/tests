@@ -27,9 +27,5 @@ class ITheoryLogic(object):
         pass
 
     @abstractmethod
-    def LoadChapters(self, aTheory: TheoryViewModel, aPath) -> ChapterTheoryViewModel:
-        pass
-
-    @abstractmethod
-    def MergeChaptersToPdf(self, aTheory: TheoryViewModel, aPath) -> bool:
+    def MergeChaptersToPdf(self, aTheory: TheoryViewModel, aPath=None) -> str:
         pass

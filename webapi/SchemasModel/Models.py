@@ -72,7 +72,7 @@ class BaseQuestionSchema(BaseModel, metaclass=abc.ABCMeta):
     pointer_to_answer: PointerToAnswerSchema
 
     def CreateQuestion(self, Question: Type[QuestionViewModel]):
-        test = self.test.GetViewModel() if isinstance(self.test, TestSchema) else TestViewModel.GetFromId(self.test)
+        test = TestViewModel.GetFromId(self.test) if isinstance(self.test, uuid.UUID) else None
         return (Question.Create(self.name, self.weight, self.complition_time, test)
                 .SetPointerToAnswer(self.pointer_to_answer.GetViewModel()))
 
@@ -127,10 +127,42 @@ class TestSchema(BaseModel):
     def GetViewModel(self):
         return TestViewModel.Create(self.name, self.count_attempts, self.shuffle, self.show_answer, None,
                                     self.theory.GetViewModel() if isinstance(self.theory, TheorySchema)
-                                    else TheoryViewModel.GetFromId(self.theory.id),
+                                    else TheoryViewModel.GetFromId(self.theory),
                                     self.complition_time).AddQuestions([i.GetViewModel() for i in self.questions])
 
 
 class TestUpdateSchema(BaseModel):
     name: str
     questions: list[Union[QuestionChoiceSchema, QuestionNotCheckSchema, QuestionInputAnswerSchema]]
+
+
+class AnswerSchema(BaseModel):
+    text_answer: Optional[str]
+    complition_time: datetime.datetime
+    question_id: uuid.UUID
+    answers_test: list[uuid.UUID]
+
+
+class ResultTestCreateSchema(BaseModel):
+    test_id: uuid.UUID
+    note: Optional[str]
+
+
+class ResultTestUpdateSchema(BaseModel):
+    completed_date: Optional[datetime.datetime]
+    note: Optional[str]
+    answers: list[AnswerSchema]
+
+
+class AnswerForCurrentQuestionSchema(BaseModel):
+    text_answer: Optional[str]
+    answers: Optional[list[AnswerTestSchema]]
+
+    @classmethod
+    @root_validator
+    def any_answer(cls, values):
+        text = values.get('text_answer')
+        answers = values.get('answers')
+        if text is None or answers is None:
+            raise ValueError("Должен быть заполнен либо текст ответа, либо выбран вариант ответа")
+        return values

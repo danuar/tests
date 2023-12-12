@@ -4,13 +4,17 @@ from typing import Union, Optional
 from fastapi import Response, Request, Cookie
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from webapi.InterfacesControllers import IUserLogic
+from webapi.InterfacesControllers import IUserLogic, ICachedService
 from webapi.ViewModel import UserViewModel
 from webapi.db import DbSession
 
 
 def get_user_logic() -> IUserLogic:
     return IUserLogic.__subclasses__()[-1]()
+
+
+def get_cached_service() -> ICachedService:
+    return ICachedService.__subclasses__()[-1]()
 
 
 async def get_async_session() -> AsyncSession:

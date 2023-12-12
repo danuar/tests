@@ -7,9 +7,8 @@ from PyQt5.QtGui import QColor, QTextCursor, QTextCharFormat
 from PyQt5.QtWidgets import QTextEdit, QMenu, QTabWidget, QWidget, QAction, QLineEdit, QFormLayout, QSpinBox, \
     QPushButton, QHBoxLayout, QVBoxLayout
 
-from db import Theory, PointerToAnswer
 from desktop_app.MessageBox import *
-from logicsDB import TheoryLogic
+from webapi.ViewModel import *
 
 
 class TextEditPointer(QTextEdit):
@@ -27,7 +26,7 @@ class TextEditPointer(QTextEdit):
 class TheoryViewWidget(QTabWidget):
     added_pointer_to_answer = pyqtSignal(QTextCursor)
 
-    def __init__(self, theory: Optional[Theory] = None,
+    def __init__(self, theory: Optional[TheoryViewModel] = None,
                  parent: QWidget = None, background_answer: QColor = QColor(0, 255, 0)):
         super().__init__(parent)
         self.prev_format_answer = None
@@ -54,7 +53,7 @@ class TheoryViewWidget(QTabWidget):
         self.add_cursor(cursor)
         self.added_pointer_to_answer.emit(cursor)
 
-    def set_to_pointer(self, ptr: PointerToAnswer):
+    def set_to_pointer(self, ptr: PointerToAnswerViewModel):
         index = list(self.theory.chapters).index(ptr.chapter)
         self.setCurrentIndex(index)
         cursor = QTextCursor(self.currentWidget().document())
@@ -95,7 +94,7 @@ class TheoryViewWidget(QTabWidget):
 class TheoryTabWidget(QWidget):
     changedTheories = pyqtSignal()
 
-    def __init__(self, updated_theory: Optional[Theory] = None, parent: QWidget = None):
+    def __init__(self, updated_theory: Optional[TheoryViewModel] = None, parent: QWidget = None):
         super().__init__(parent)
         self.setWindowTitle("Теоретический материал")
         self.setMinimumSize(int(400 * 16 / 9), 400)

@@ -15,11 +15,11 @@ class IResultTestLogic(object):
         pass
 
     @abstractmethod
-    async def Update(self, aResult: ResultTestViewModel) -> ResultTestViewModel:
+    async def Update(self, aUser: UserViewModel, aResult: ResultTestViewModel) -> ResultTestViewModel:
         pass
 
     @abstractmethod
-    async def Get(self, aResult: ResultTestViewModel) -> ResultTestViewModel:
+    async def Get(self, aUser: UserViewModel, aResult: ResultTestViewModel) -> ResultTestViewModel:
         pass
 
     @abstractmethod
@@ -27,5 +27,9 @@ class IResultTestLogic(object):
         pass
 
     @abstractmethod
-    async def CompleteTest(self, aResult: ResultTestViewModel) -> ResultTestViewModel:
+    async def GetFromTest(self, aUser: UserViewModel, aTestId) -> List[ResultTestViewModel]:
+        pass
+
+    @abstractmethod
+    async def CompleteTest(self, aUser: UserViewModel, aResult: ResultTestViewModel) -> ResultTestViewModel:
         pass

@@ -1,10 +1,11 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 import uuid
-from typing import List
 
+import aiofiles
 from classy_fastapi import post, put, get, delete
-from fastapi import Depends
+from fastapi import Depends, UploadFile, File
+from fastapi.responses import FileResponse
 
 from webapi.InterfacesControllers import IChapterLogic
 from webapi.SchemasModel import ChapterTheoryUpdateSchema, ChapterTheorySchema
@@ -37,8 +38,20 @@ class ChapterController(AbstractController):
     async def delete_chapter_theory_by_id(self, aId: uuid.UUID, user=Depends(get_user)) -> ChapterTheoryViewModel:
         return await self._logic.Delete(ChapterTheoryViewModel.Delete(aId, user.id))
 
-    async def get_content_chapter_by_id_in_format_html_document(self, aId: int):
-        pass
+    @get("/chapter_html/{id}", response_class=FileResponse)
+    async def get_content_chapter_by_id_in_format_html_document(self, id: uuid.UUID):
+        path = (await self._logic.GetContentByChapter(ChapterTheoryViewModel.Get(id)))[0]
+        return FileResponse(path, media_type="multipart/form-data")
+
+    @post("/load_chapter/{id}")
+    async def load_content_chapter_by_id(self, id: uuid.UUID, file: UploadFile = File(media_type="text/html"),
+                                         overwrite: bool = True):
+        chapter = await self._logic.LoadChapter(ChapterTheoryViewModel.Get(id), overwrite, delegate_write=True)
+        async with aiofiles.open(chapter.content, 'wb') as out_file:
+            while content := await file.read(1024):  # async read chunk
+                await out_file.write(content)
+        chapter.content = None
+        return chapter
 
     def __init__(self):
         super().__init__()

@@ -3,8 +3,8 @@ from typing import Union
 
 from PyQt5.QtWidgets import QFormLayout, QLineEdit, QCheckBox, QPushButton, QHBoxLayout, QDoubleSpinBox
 
-from db import Question, QuestionChoise, QuestionInputAnswer, QuestionNotCheck, AnswerTest
 from desktop_app.MessageBox import *
+from webapi.ViewModel import *
 
 
 class ViewQuestion(abc.ABC):
@@ -22,7 +22,7 @@ class ViewQuestion(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def create_entity(self, question: Question):
+    def create_entity(self, question: QuestionViewModel):
         pass
 
     @classmethod
@@ -34,8 +34,8 @@ class ViewQuestion(abc.ABC):
         return cls.instanses[number].check()
 
     @classmethod
-    def create_specify_entity(cls, number_type: int, question: Question) -> \
-            Union[QuestionChoise, QuestionInputAnswer, QuestionNotCheck]:
+    def create_specify_entity(cls, number_type: int, question: QuestionViewModel) -> \
+            Union[QuestionChoiceViewModel, QuestionInputAnswerViewModel, QuestionNotCheckViewModel]:
         return cls.instanses[number_type].create_entity(question)
 
     @classmethod
@@ -65,13 +65,13 @@ class ViewQuestionChoise(ViewQuestion):
             show_msg_information("Ошибка при добавлении ответа на вопрос", "Ни один ответ не является верным")
         return has_any_correct_answer
 
-    def create_entity(self, question) -> QuestionChoise:
-        result = QuestionChoise(question=question)
+    def create_entity(self, question) -> QuestionChoiceViewModel:
+        result = QuestionChoiceViewModel.Create(question.name, question.weight, question.complitionTime, question.test)
         for i in range(self.form.rowCount() - 1):
             layout = self.form.itemAt(i, QFormLayout.FieldRole)
             line_edit: QLineEdit = layout.itemAt(0).widget()
             check_box: QCheckBox = layout.itemAt(1).widget()
-            result.answers.append(AnswerTest(text=line_edit.text(), correct=check_box.isChecked()))
+            result.answers.append(AnswerTestViewModel(text=line_edit.text(), is_correct=check_box.isChecked()))
         return result
 
     def setup(self):
@@ -127,12 +127,10 @@ class ViewQuestionInputAnswer(ViewQuestion):
                                           "считаться правильным. Вы уверены что хотите продолжить?"))
         return True
 
-    def create_entity(self, question) -> QuestionInputAnswer:
-        return QuestionInputAnswer(
-            question=question,
-            k_misspell=self.form.itemAt(0, QFormLayout.FieldRole).widget().value() / 100,
-            correct_answer=self.form.itemAt(1, QFormLayout.FieldRole).widget().text(),
-        )
+    def create_entity(self, question) -> QuestionInputAnswerViewModel:
+        return (QuestionInputAnswerViewModel.Create(question.name, question.weight, question.complitionTime, question.test)
+                .SetCorrectAnswer(self.form.itemAt(1, QFormLayout.FieldRole).widget().text())
+                .SetKMisspell(self.form.itemAt(0, QFormLayout.FieldRole).widget().value() / 100))
 
 
 class ViewQuestionNotCheck(ViewQuestion):
@@ -145,6 +143,6 @@ class ViewQuestionNotCheck(ViewQuestion):
     def check(self):
         return True
 
-    def create_entity(self, question) -> QuestionNotCheck:
-        return QuestionNotCheck(question=question)
+    def create_entity(self, question) -> QuestionNotCheckViewModel:
+        return QuestionNotCheckViewModel.Create(question.name, question.weight, question.complitionTime, question.test)
 

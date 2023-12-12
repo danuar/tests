@@ -22,3 +22,7 @@ class ICachedService(object):
     @abstractmethod
     def TryGet(self, aKey: str) -> object:
         pass
+
+    @abstractmethod
+    def Remove(self, aKey: str):
+        pass

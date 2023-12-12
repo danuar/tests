@@ -9,7 +9,7 @@ from sqlalchemy.orm import joinedload
 from webapi.InterfacesControllers import ITestRepository, ICachedService, IUserRepository
 from webapi.InterfacesControllers.StorageControllers.AbstractDbRepository import AbstractDbRepository
 from webapi.ViewModel import UserViewModel, TestViewModel
-from webapi.db import DbSession, Test, ResultTest, Question, QuestionChoice
+from webapi.db import DbSession, Test, ResultTest, Question, QuestionChoice, Theory
 
 
 class TestRepository(ITestRepository, AbstractDbRepository):
@@ -61,19 +61,21 @@ class TestRepository(ITestRepository, AbstractDbRepository):
 
     async def Get(self, aTest: TestViewModel) -> TestViewModel:
         aTest.CanBeFind().raiseValidateException()
-        return (await self.session.get(Test, aTest.id, options=self.get_options())).GetViewModel(load_user=False)
+        return (await self.session.get(Test, aTest.id, options=self.get_options() +
+                                       [joinedload(Test.theory).joinedload(Theory.chapters)])).GetViewModel(load_user=False)
 
     async def GetAvailableCountAttempts(self, aUser: UserViewModel, aTest: TestViewModel) -> int:
-        test: Test = await self.Get(aTest)
-        if test.count_attempts is None:
+        test: TestViewModel = await self.Get(aTest)
+        if test.countAttempts is None:
             return None
         if aUser.tests is None:
             aUser = await self.user_repository.RegisterOrAuthorize(aUser)
-        return test.count_attempts - len([i for i in aUser.resultsTests if i.test.id == aTest.id])
+        return test.countAttempts - len([i for i in aUser.resultsTests if i.test.id == aTest.id])
 
     @staticmethod
     def get_options():
         return [joinedload(Test.questions).joinedload(Question.question_choice).joinedload(QuestionChoice.answers_test),
                 joinedload(Test.questions).joinedload(Question.question_input_answer),
-                joinedload(Test.questions).joinedload(Question.question_not_check)]
+                joinedload(Test.questions).joinedload(Question.question_not_check),
+                joinedload(Test.theory)]
 

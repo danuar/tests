@@ -8,10 +8,17 @@ from webapi.InterfacesControllers.StorageControllers.ICachedService import ICach
 
 
 class DictionaryCachedService(ICachedService):
+    def Remove(self, aKey: str):
+        if aKey not in self.cache:
+            self.result_last_operation = False
+            return
+        self.cache.pop(aKey)
+
     __lifeTimeCache = datetime.timedelta(minutes=30)
     cache: dict[str, tuple[datetime.datetime, object]] = {}
 
     def __init__(self):
+        super().__init__()
         self.result_last_operation: bool = None
 
     def Get(self, aKey: str) -> object:

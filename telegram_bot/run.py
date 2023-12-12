@@ -2,6 +2,7 @@ import asyncio
 import difflib
 import enum
 import locale
+import logging
 import operator
 import os
 import sys
@@ -17,10 +18,13 @@ from aiogram import Bot, Dispatcher, executor, types
 from aiogram.dispatcher.filters import Command
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, MediaGroup, InputFile
 
+import config
+from ClientController import AsyncHttpClientController
+from webapi.ViewModel import *
 from desktop_app.TheoryWidgets import TheoryViewWidget
 from desktop_app.run import ViewResultTest
-from logicsDB import *
 
+aioclient = AsyncHttpClientController()
 bot = Bot(token=config.API_TOKEN)
 dp = Dispatcher(bot)
 app = QApplication(sys.argv)
@@ -39,21 +43,18 @@ class TelegramUser:
         timeout = 2
         wait_input = 4
 
-    def __init__(self, ident, tests: set[Test], results_tests: list[ResultTest]):
-        UserLogic.user = None
-        UserLogic().setup_user(uuid.uuid3(uuid.NAMESPACE_OID, str(ident)))
+    def __init__(self, ident, tests: dict[str, TestViewModel], results_tests: list[ResultTestViewModel]):
         self.tests = tests
         self.results_tests = results_tests
         self.tg_id = ident
-        self.db_user = UserLogic.user
         self.state = self.State.unknown
-        self.answer: Optional[Answer] = None
+        self.answer: Optional[AnswerViewModel] = None
         self.answered_message: Optional[types.Message] = None
         self.msg_view_questions: Optional[types.Message] = None
 
     @staticmethod
     def create(tg_id: int):
-        return users.setdefault(tg_id, TelegramUser(tg_id, set(), []))
+        return users.setdefault(tg_id, TelegramUser(tg_id, {}, []))
 
 
 users: dict[int, TelegramUser] = {}
@@ -128,8 +129,10 @@ async def send_welcome(message: types.Message):
 async def get_test(message: types.Message):
     ident = message.get_args()
     try:
-        test = TestLogic().get(uuid.UUID(ident))
-        user = TelegramUser.create(message.from_user.id).tests.add(test)
+        test: TestViewModel = await aioclient.get("/test", TestViewModel.GetFromId(None), aId=ident)
+        test.complitionTime = datetime.time.fromisoformat(test.complitionTime)
+        # test = TestLogic().get(uuid.UUID(ident)) prev_code
+        user = TelegramUser.create(message.from_user.id).tests[test.id] = test
     except Exception as e:
         test = None
         logging.warning("Произошла ошибка при попытке получить тест: ", exc_info=e)
@@ -138,11 +141,12 @@ async def get_test(message: types.Message):
                             "Перепроверьте его и попробуйте еще раз.")
         return
     logging.info(f"Получен тест: '{test.name}' по команде /test")
-    t = get_seconds(test.completion_time) if test.completion_time \
-        else sum(get_seconds(i.complition_time) for i in test.questions)
+    t = get_seconds(test.complitionTime) if test.complitionTime \
+        else sum(get_seconds(i.complitionTime) for i in test.questions)
     txt = "Неограниченное количество попыток."
     not_available_test_text = ""
-    count_attempts = TestLogic().get_count_attempts(test)
+    count_attempts = 4
+    # count_attempts = TestLogic().get_count_attempts(test) prev_code
     if count_attempts == 0:
         not_available_test_text = "\nНе осталось попыток для прохождения."
     if count_attempts is not None:
@@ -172,11 +176,12 @@ async def get_test(message: types.Message):
 @dp.callback_query_handler(lambda c: c.data[:13] == 'on_get_theory')
 async def send_theory(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
-    test: Test = TestLogic().get(uuid.UUID(callback_query.data[13:]))
-    study_time_text = f"\n\nПримерное время изучения *{test.theory.study_time}*" if test.theory.study_time else ""
+    test = await aioclient.get("/test", TestViewModel.GetFromId(None), aId=callback_query.data[13:])
+    # test: Test = TestLogic().get(uuid.UUID(callback_query.data[13:])) prev_code
+    study_time_text = f"\n\nПримерное время изучения *{test.theory.studyTime}*" if test.theory.studyTime else ""
     media_group = MediaGroup()
     for i, chapter in enumerate(test.theory.chapters):
-        doc = InputFile(os.path.join(TheoryLogic.path_to_save_chapters, f"{chapter.id}.html"), chapter.name)
+        doc = InputFile(aioclient.base_url + "/chapter_html/" + chapter.id, chapter.name)
         if i == len(test.theory.chapters) - 1:  # Заголовок сообщения
             media_group.attach_document(doc, caption=f'Теория *{test.theory.name}*{study_time_text}',
                                         parse_mode='markdown')
@@ -193,37 +198,40 @@ async def set_header_test(header_msg: types.Message, template_str: str, current_
 @dp.callback_query_handler(lambda c: c.data[:11] == 'on_run_test')
 async def run_test(info: types.CallbackQuery):
     await bot.answer_callback_query(info.id)
-    test = TestLogic().get(uuid.UUID(info.data[11:]))
-    count_attempts = TestLogic().get_count_attempts(test)
+    test: TestViewModel = await aioclient.get("/test", TestViewModel.GetFromId(None), aId=info.data[11:])
+    count_attempts = 4
     if count_attempts == 0:
         await bot.send_message(info.from_user.id, "Не осталось попыток для прохождения.")
         return
     user = TelegramUser.create(info.from_user.id)
-    result_test = ResultTest(test=test, user=user.db_user, completed_date=datetime.datetime.now())
-    ResultTestLogic().create(result_test)
-    current_time = test.completion_time
-    random.shuffle(test.questions)
+    # result_test = ResultTest(test=test, user=user.db_user, completed_date=datetime.datetime.now())
+    # ResultTestLogic().create(result_test)
+    # current_time = test.complitionTime prev_code
+    result_test: ResultTestViewModel = await aioclient.post("/result_test", {"test_id": test.id, "note": "fdsdffd"}, ResultTestViewModel.GetById(None))
+    if test.shuffle:
+        random.shuffle(test.questions)
     cnt = len(test.questions)
     start_time = time.time()
 
     for i, question in enumerate(test.questions):
         user.state = TelegramUser.State.answer
-        if question.complition_time:
-            current_time = question.complition_time
+        current_time = datetime.time(hour=1)
+        if question.complitionTime:
+            current_time = question.complitionTime
         text_question = f"\n\nВопрос: {question.name}"
         tmp = f"Вес вопроса: *{question.weight}*\nОставшиеся время: *{{0:%X}}*\n" \
               f"Вопрос *{i + 1}* из *{cnt}* {text_question}"
         header_msg = await bot.send_message(info.from_user.id, tmp, parse_mode='markdown')
-        if question.question_choice:
+        if hasattr(question, 'answersTest'):
             poll = await bot.send_poll(info.from_user.id, question.name,
-                                       options=[i.text for i in question.question_choice.answers_test],
+                                       options=[i.text for i in question.answers_test],
                                        allows_multiple_answers=True,
                                        is_anonymous=False,
                                        )
         if i == 0:
             start_time = time.time()
         is_timeout = False
-        user.answer = Answer(question=question)
+        user.answer = AnswerViewModel.Create(None, question, result_test)
         while True:
             diff = time.time() - start_time
             try:
@@ -245,7 +253,7 @@ async def run_test(info: types.CallbackQuery):
         if is_timeout:
             user.answer.mark = 0
         result_test.answers.append(user.answer)
-        if is_timeout and test.completion_time:
+        if is_timeout and test.complitionTime:
             await bot.send_message(info.from_user.id, "Упс... Время для прохождения теста закончилось.\n\n"
                                                       "Ваши ответы будут сохранены")
             break
@@ -255,7 +263,7 @@ async def run_test(info: types.CallbackQuery):
             continue
     result_test.completed_date = datetime.datetime.now()
     user.results_tests.append(result_test)
-    ResultTestLogic().save()
+    await aioclient.put("/result_test", result_test, result_test, aId=result_test.id)
 
     btn = InlineKeyboardButton("Посмотреть результат", callback_data="on_view_result" + str(result_test.id))
     await bot.send_message(info.from_user.id, "Результат теста был успешно сохранен",
@@ -266,7 +274,8 @@ async def run_test(info: types.CallbackQuery):
 async def view_result_test(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
     user = TelegramUser.create(callback_query.from_user.id)
-    result_test = ResultTestLogic().get(uuid.UUID(callback_query.data[14:]))
+    result_test = await aioclient.get("/result_test", ResultTestViewModel.GetById(None), aId=uuid.UUID(callback_query.data[14:]))
+    # result_test = ResultTestLogic().get(uuid.UUID(callback_query.data[14:])) prev_code
     current_mark = sum(i.mark for i in result_test.answers if i.mark)
     all_mark = sum(i.weight for i in result_test.test.questions)
     not_check_mark = sum(i.question.weight for i in result_test.answers if i.mark is None)
@@ -282,22 +291,14 @@ async def view_result_test(callback_query: types.CallbackQuery):
               f"Общее время прохождения: {sum_time([i.complition_time for i in result_test.answers])}\n"
               f"Когда был пройден тест: {result_test.completed_date:%d %B %Y год %X}")
 
-    w = ViewResultTest(result_test)
-    x, y = 700, 700
-    pie = w.create_pie(current_mark, not_check_mark, all_mark, anim=QChart.AnimationOption.NoAnimation)
-    pie.setMinimumSize(x, y)
-    pie.grab().save("pie.png")
-    bar = w.create_bar(QChart.AnimationOption.NoAnimation)
-    bar.setMinimumSize(x, y)
-    bar.grab().save("bar.png")
-
     user.answer = None
     inline_view_questions.callback_data = "on_view_questions" + str(result_test.id) + ";"
     inline_set_note.callback_data = "on_set_note" + str(result_test.id)
     inline_markup_for_result_test = InlineKeyboardMarkup().add(inline_view_questions, inline_set_note)
 
     media_group = MediaGroup()
-    media_group.attach_photo(InputFile("pie.png"), caption="Диаграммы с результами")
+    # todo графики mathplotlib
+    media_group.attach_photo(InputFile("pie.png"), caption="Диаграммы с результатами")
     media_group.attach_photo(InputFile("bar.png"))
 
     await bot.send_media_group(callback_query.from_user.id, media_group)
@@ -309,7 +310,8 @@ async def view_result_test(callback_query: types.CallbackQuery):
 async def view_questions(callback_query: types.CallbackQuery):
     user = TelegramUser.create(callback_query.from_user.id)
     arg: str = callback_query.data[17:]
-    result_test = ResultTestLogic().get(uuid.UUID(arg[:arg.find(";")]))
+    result_test: ResultTestViewModel = await aioclient.get("/result_test", ResultTestViewModel.GetById(None), aId=uuid.UUID(arg[:arg.find(";")]))
+    # result_test = ResultTestLogic().get(uuid.UUID(arg[:arg.find(";")])) prev_code
     start = arg.find("<")
     end = arg.rfind(">")
     is_new = start == -1 or end == -1 or not len(arg[start+1:end])
@@ -318,21 +320,21 @@ async def view_questions(callback_query: types.CallbackQuery):
 
     mark = "Вопрос еще не проверен" if answer.mark is None else f"Балл *{answer.mark}* из *{answer.question.weight}*"
     info = f"*№{question_index+1} из {len(result_test.answers)}* \n\n" \
-           f"Вопрос: *{answer.question.name}*\n\n{mark}\nВремя прохождения: *{answer.complition_time}*"
-    if answer.text_answer:
-        info += f"\n\nПолученный ответ: {answer.text_answer}"
-    if answer.question.question_input_answer and result_test.test.show_answer:
-        info += f"\n\nПравильный ответ: {answer.question.question_input_answer.correct_answer}"
-    if answer.question.question_choice:
+           f"Вопрос: *{answer.question.name}*\n\n{mark}\nВремя прохождения: *{answer.complitionTime}*"
+    if answer.answer:
+        info += f"\n\nПолученный ответ: {answer.answer}"
+    if isinstance(answer.question, QuestionInputAnswerViewModel) and result_test.test.showAnswer:
+        info += f"\n\nПравильный ответ: {answer.question.correctAnswer}"
+    if isinstance(answer.question, QuestionChoiceViewModel):
         info += "\n"
-        for test_answer in answer.question.question_choice.answers_test:
+        for test_answer in answer.question.answers_test:
             is_checked = "☑" if test_answer in answer.answers_test else "\t ☐\t"
             correct = "Правильный ответ" if test_answer.correct else "Неправильный ответ"
             info += f"\n{is_checked} - {test_answer.text}"
-            if result_test.test.show_answer:
+            if result_test.test.showAnswer:
                 info += f" - {correct}"
 
-    ptr = answer.question.pointer_to_answer
+    ptr = answer.question.pointer
     txt = TheoryViewWidget(result_test.test.theory).set_to_pointer(ptr)
     info += f'\n\nОтрывок из теории *"{ result_test.test.theory.name}"* раздела *{ptr.chapter.name}* ' \
             f'помеченный как ответ: \n"{txt}"'
@@ -358,12 +360,15 @@ async def set_note(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
     user = TelegramUser.create(callback_query.from_user.id)
     user.state = TelegramUser.State.wait_input
-    result_test = ResultTestLogic().get(uuid.UUID(callback_query.data[11:]))
+    result_test: ResultTestViewModel = await aioclient.get("/result_test", ResultTestViewModel.GetById(None), aId=uuid.UUID(callback_query.data[11:]))
+    # result_test = ResultTestLogic().get(uuid.UUID(callback_query.data[11:])) prev_code
+
     await bot.send_message(callback_query.from_user.id, "Оставьте примечание для создателя теста:")
     while user.state == TelegramUser.State.wait_input:
         await asyncio.sleep(0.8)
     result_test.note = user.answered_message.text
-    ResultTestLogic().save()
+    result_test.answers.clear()  # avoid duplicate answers in result
+    await aioclient.put("/result_test", result_test, result_test, aId=result_test.id)
     await user.answered_message.reply("Примечание сохранено")
 
 
