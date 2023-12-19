@@ -8,7 +8,7 @@ import os
 # for 'autogenerate' support
 # from myapp import mymodel
 from webapi.db import *
-from ..config import *
+from config import *
 target_metadata = Base.metadata
 
 
