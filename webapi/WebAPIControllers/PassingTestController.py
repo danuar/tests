@@ -21,7 +21,7 @@ class PassingTestController(AbstractController):
     @post("/answer")
     def SendAnswerForCurrentQuestion(self, answer: AnswerForCurrentQuestionSchema, user=Depends(get_user)):
         answervm = (AnswerViewModel.CreateForPassintTest(answer.text_answer)
-                    .AddAnswersTests([AnswerTestViewModel.CreateInQuestion(i.text, i.isCorrect) for i in answer.answers]))
+                    .AddAnswersTests([AnswerTestViewModel.FromId(i) for i in answer.answers]))
         self._logic.add_answer_in_result(user, answervm)
         return "Ответ успешно добавлен"
 

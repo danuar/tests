@@ -1,8 +1,6 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
-from typing import List
-
 from webapi.InterfacesControllers.StorageControllers.ICachedService import ICachedService
 from webapi.db.DbSession import DbSession
 

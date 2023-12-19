@@ -8,7 +8,7 @@ from sqlalchemy.engine import Result
 from webapi.InterfacesControllers import ITheoryRepository, ICachedService
 from webapi.InterfacesControllers.StorageControllers.AbstractDbRepository import AbstractDbRepository
 from webapi.ViewModel import TheoryViewModel, UserViewModel
-from webapi.db import DbSession, Theory
+from webapi.db import DbSession, Theory, ChapterTheory
 
 
 class TheoryRepository(ITheoryRepository, AbstractDbRepository):
@@ -23,22 +23,25 @@ class TheoryRepository(ITheoryRepository, AbstractDbRepository):
         theory: Theory = Theory.CreateFrom(aTheory)
         self.session.add(theory)
         await self.session.commit()
+        await self.session.refresh(theory, ["chapters"])
 
-        # todo пофиксить дрисню
-        return TheoryViewModel(theory.id, theory.name, theory.study_time, [], [], aTheory.creator)
+        result = theory.GetViewModel(load_user=False)
+        for i, chapter in enumerate(result.chapters):
+            chapter.SetContent(aTheory.chapters[i].content)
+        return result
 
     async def Update(self, user: UserViewModel, aTheory: TheoryViewModel) -> TheoryViewModel:
         aTheory.CanBeUpdated().raiseValidateException()
 
-        await self.session.execute(update(Theory)
-                                   .where(Theory.id == aTheory.id)
-                                   .values(name=aTheory.name, study_time=aTheory.studyTime))
         theory: Theory = await self.session.get(Theory, aTheory.id)
         if theory is None:
             raise Exception("Неверно задан id для теории")
         if theory.creator_id != user.id:
             await self.session.rollback()
             raise Exception("Менять теорию может только ее владелец")
+        theory.study_time = aTheory.study_time
+        theory.name = aTheory.name
+        theory.chapters.extend(ChapterTheory.CreateFrom(i) for i in aTheory.chapters)
         await self.session.commit()
 
         return theory.GetViewModel()
@@ -48,4 +51,4 @@ class TheoryRepository(ITheoryRepository, AbstractDbRepository):
 
     async def GetAllFromUser(self, user: UserViewModel) -> List[TheoryViewModel]:
         result: Result = (await self.session.execute(select(Theory).where(Theory.creator_id == user.id)))
-        return [i.GetViewModel().SetCreator(None) for i in result.unique().scalars()]
+        return [i.GetViewModel().SetCreator(user.id) for i in result.unique().scalars()]

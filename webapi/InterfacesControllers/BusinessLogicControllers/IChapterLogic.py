@@ -34,3 +34,7 @@ class IChapterLogic(object):
     async def GetContentByChapter(self, aChapter: ChapterTheoryViewModel, get_path_to_file=True) -> (
             Union)[list[str], list[ChapterTheoryViewModel]]:
         pass
+
+    @abstractmethod
+    async def SaveContentInFile(self, aChapter: ChapterTheoryViewModel):
+        pass

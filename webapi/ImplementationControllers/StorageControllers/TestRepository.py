@@ -1,22 +1,26 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
+from operator import and_
 from typing import List
 
-from sqlalchemy import update, select
+from sqlalchemy import update, select, func
 from sqlalchemy.engine import Result
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, subqueryload, selectinload
 
 from webapi.InterfacesControllers import ITestRepository, ICachedService, IUserRepository
 from webapi.InterfacesControllers.StorageControllers.AbstractDbRepository import AbstractDbRepository
 from webapi.ViewModel import UserViewModel, TestViewModel
-from webapi.db import DbSession, Test, ResultTest, Question, QuestionChoice, Theory
+from webapi.db import DbSession, Test, ResultTest, Question, QuestionChoice, Theory, QuestionInputAnswer, \
+    QuestionNotCheck
+
+_cached_service: ICachedService = ICachedService.__subclasses__()[-1]()
 
 
 class TestRepository(ITestRepository, AbstractDbRepository):
 
     def __init__(self):
         super().__init__()
-        self.cachedService: ICachedService = ICachedService.__subclasses__()[-1]()
+        self.cachedService: ICachedService = _cached_service
         self.user_repository: IUserRepository = IUserRepository.__subclasses__()[-1]()
         self.session = DbSession().async_session
 
@@ -52,30 +56,31 @@ class TestRepository(ITestRepository, AbstractDbRepository):
                                                      .options(*self.get_options())))
         return [i.GetViewModel(load_user=False) for i in result.unique().scalars()]
 
+    @_cached_service.cache_decorate
     async def GetCompleted(self, aUser: UserViewModel) -> List[TestViewModel]:
-        # todo создать отдельный связь для добавленных тестов у пользователя
-        result: Result = (await self.session.execute(select(ResultTest)
+        result: Result = (await self.session.execute(select(Test)
                                                      .where(ResultTest.user_id == aUser.id)
-                                                     .options(*self.get_options())))
-        return [i.test.GetViewModel(load_user=False) for i in result.unique().scalars()]
+                                                     .options(*self.get_options(), selectinload(Test.results_tests))))
+        return [i.GetViewModel(load_user=False) for i in result.unique().scalars()]
 
     async def Get(self, aTest: TestViewModel) -> TestViewModel:
         aTest.CanBeFind().raiseValidateException()
         return (await self.session.get(Test, aTest.id, options=self.get_options() +
-                                       [joinedload(Test.theory).joinedload(Theory.chapters)])).GetViewModel(load_user=False)
+                                                               [joinedload(Test.theory).joinedload(
+                                                                   Theory.chapters)])).GetViewModel(load_user=False)
 
     async def GetAvailableCountAttempts(self, aUser: UserViewModel, aTest: TestViewModel) -> int:
         test: TestViewModel = await self.Get(aTest)
-        if test.countAttempts is None:
+        if test.count_attempts is None:
             return None
-        if aUser.tests is None:
-            aUser = await self.user_repository.RegisterOrAuthorize(aUser)
-        return test.countAttempts - len([i for i in aUser.resultsTests if i.test.id == aTest.id])
+        count = await self.session.scalar(select(func.count(ResultTest.id)).where(
+            and_(ResultTest.test_id == test.id, ResultTest.user_id == aUser.id)))
+        return test.count_attempts - count
 
     @staticmethod
     def get_options():
-        return [joinedload(Test.questions).joinedload(Question.question_choice).joinedload(QuestionChoice.answers_test),
-                joinedload(Test.questions).joinedload(Question.question_input_answer),
-                joinedload(Test.questions).joinedload(Question.question_not_check),
-                joinedload(Test.theory)]
-
+        return [
+            selectinload(Test.questions).selectinload(Question.question_choice).joinedload(QuestionChoice.answers_test),
+            selectinload(Test.questions).selectinload(Question.question_input_answer),
+            selectinload(Test.questions).selectinload(Question.question_not_check),
+            joinedload(Test.theory)]

@@ -29,13 +29,17 @@ class TestController(AbstractController):
     async def get_created_test(self, user=Depends(get_user)) -> List[TestViewModel]:
         return await self._logic.GetCreated(user)
 
-    @get("/comleted_test")
+    @get("/completed_test")
     async def get_completed_test(self, user=Depends(get_user)) -> List[TestViewModel]:
         return await self._logic.GetCompleted(user)
 
     @get("/test")
     async def get_test_by_id(self, aId: uuid.UUID) -> TestViewModel:
         return await self._logic.Get(TestViewModel.GetFromId(aId))
+
+    @get("/available_count_attempts")
+    async def get_avilable_count_attempts_passing_test_from_current_user(self, test_id: uuid.UUID, user=Depends(get_user)):
+        return await self._logic.GetAvailableCountAttempts(user, TestViewModel.GetFromId(test_id))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

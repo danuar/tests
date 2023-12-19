@@ -7,8 +7,9 @@ from PyQt5.QtGui import QColor, QTextCursor, QTextCharFormat
 from PyQt5.QtWidgets import QTextEdit, QMenu, QTabWidget, QWidget, QAction, QLineEdit, QFormLayout, QSpinBox, \
     QPushButton, QHBoxLayout, QVBoxLayout
 
+from desktop_app.Controllers.TheoryController import TheoryController
 from desktop_app.MessageBox import *
-from webapi.ViewModel import *
+from desktop_app.Models import Theory, ChapterTheory, PointerToAnswer
 
 
 class TextEditPointer(QTextEdit):
@@ -26,7 +27,7 @@ class TextEditPointer(QTextEdit):
 class TheoryViewWidget(QTabWidget):
     added_pointer_to_answer = pyqtSignal(QTextCursor)
 
-    def __init__(self, theory: Optional[TheoryViewModel] = None,
+    def __init__(self, theory: Optional[Theory] = None,
                  parent: QWidget = None, background_answer: QColor = QColor(0, 255, 0)):
         super().__init__(parent)
         self.prev_format_answer = None
@@ -39,12 +40,12 @@ class TheoryViewWidget(QTabWidget):
         self.add_pointer_action.triggered.connect(self._add_pointer_to_answer)
         if theory:
             self.setWindowTitle(theory.name)
-            for name, html in zip(*TheoryLogic().load_chapters_from_theory(theory)):
-                widget = TextEditPointer(html)
+            for chapter in theory.chapters:
+                widget = TextEditPointer(chapter.content)
                 widget.setReadOnly(True)
                 widget.copyAvailable.connect(self.add_pointer_action.setEnabled)
                 widget.addAction(self.add_pointer_action)
-                self.addTab(widget, name)
+                self.addTab(widget, chapter.name)
 
     def _add_pointer_to_answer(self):
         widget: TextEditPointer = self.currentWidget()
@@ -53,8 +54,8 @@ class TheoryViewWidget(QTabWidget):
         self.add_cursor(cursor)
         self.added_pointer_to_answer.emit(cursor)
 
-    def set_to_pointer(self, ptr: PointerToAnswerViewModel):
-        index = list(self.theory.chapters).index(ptr.chapter)
+    def set_to_pointer(self, ptr: PointerToAnswer):
+        index = [i.id for i in self.theory.chapters].index(ptr.chapter.id)
         self.setCurrentIndex(index)
         cursor = QTextCursor(self.currentWidget().document())
         cursor.setPosition(ptr.start, QTextCursor.MoveAnchor)
@@ -94,7 +95,7 @@ class TheoryViewWidget(QTabWidget):
 class TheoryTabWidget(QWidget):
     changedTheories = pyqtSignal()
 
-    def __init__(self, updated_theory: Optional[TheoryViewModel] = None, parent: QWidget = None):
+    def __init__(self, updated_theory: Optional[Theory] = None, parent: QWidget = None):
         super().__init__(parent)
         self.setWindowTitle("Теоретический материал")
         self.setMinimumSize(int(400 * 16 / 9), 400)
@@ -184,6 +185,8 @@ class TheoryTabWidget(QWidget):
         if not self.tabs_chapters.count():
             show_msg_information("Ошибка при сохранении", "Создайте хотя бы один раздел теории перед сохранением")
         else:
+            m = self.study_time.value()
+            study_time = datetime.time(hour=m // 60, minute=m % 60)
             if self.updated_theory is None:
                 names = []
                 chapters = []
@@ -191,20 +194,25 @@ class TheoryTabWidget(QWidget):
                     names.append(self.tabs_chapters.tabText(i))
                     chapters.append(self.tabs_chapters.widget(i).toHtml())
 
-                TheoryLogic().create(self.name_theory.text(), self.study_time.value(), names, chapters)
+                TheoryController().create_theory(Theory(
+                    name=self.name_theory.text(),
+                    study_time=datetime.time.isoformat(study_time), chapters=[
+                        ChapterTheory(name=name, content=content) for name, content in zip(names, chapters)]))
             else:
                 self.updated_theory.name = self.name_theory.text()
                 if self.study_time.value() <= 0:
                     self.updated_theory.study_time = None
                 else:
-                    m = self.study_time.value()
-                    self.updated_theory.study_time = datetime.time(hour=m // 60, minute=m % 60)
-                names = []
-                chapters = []
-                for i in range(len(self.updated_theory.chapters), self.tabs_chapters.count()):
-                    names.append(self.tabs_chapters.tabText(i))
-                    chapters.append(self.tabs_chapters.widget(i).toHtml())
-                TheoryLogic().add_chapters(self.updated_theory, names, chapters)
+                    self.updated_theory.study_time = datetime.time.isoformat(study_time)
+                print(self.updated_theory.chapters, self.updated_theory.chapters is None)
+                if self.updated_theory.chapters is None:
+                    self.updated_theory.chapters = []
+                ln = len(self.updated_theory.chapters)
+                self.updated_theory.chapters = []
+                for i in range(ln, self.tabs_chapters.count()):
+                    chapter = ChapterTheory(name=self.tabs_chapters.tabText(i), content=self.tabs_chapters.widget(i).toHtml())
+                    self.updated_theory.chapters.append(chapter)
+                TheoryController().update_theory(self.updated_theory)
             self.changedTheories.emit()
             t = "изменен" if self.updated_theory else "создан"
             show_msg_information("Теория", f"Теоретический материал успешно {t}")

@@ -4,12 +4,15 @@ import datetime
 from typing import List
 
 from webapi.InterfacesControllers import IResultTestLogic, IResultTestRepository, IUserRepository, ITestRepository
-from webapi.ViewModel import ResultTestViewModel, UserViewModel, TestViewModel
+from webapi.ViewModel import ResultTestViewModel, UserViewModel, TestViewModel, ResultTestEasyViewModel
 
 
 class ResultTestLogic(IResultTestLogic):
+    async def GetFromCreatedUser(self, user) -> List[ResultTestViewModel]:
+        return await self._repository.GetFromCreatedUser(user)
+
     async def Create(self, aResult: ResultTestViewModel) -> ResultTestViewModel:
-        aResult.startDate = datetime.datetime.now()
+        aResult.start_date = datetime.datetime.now()
         if (await self._test_repository.GetAvailableCountAttempts(aResult.user, aResult.test)) == 0:
             raise Exception("Вы потратили все попытки на прохождение данного теста")
         return await self._repository.Create(aResult)
@@ -24,11 +27,17 @@ class ResultTestLogic(IResultTestLogic):
         return await self._repository.GetFromUser(aUser)
 
     async def CompleteTest(self, aUser: UserViewModel, aResult: ResultTestViewModel) -> ResultTestViewModel:
-        aResult.completedDate = datetime.datetime.now()
+        aResult.completed_date = datetime.datetime.now()
         return await self._repository.Update(aUser, aResult)
 
     async def GetFromTest(self, aUser: UserViewModel, aTest: TestViewModel) -> List[ResultTestViewModel]:
         return await self._repository.GetFromTest(aUser, aTest)
+
+    async def GetFromCreatedUserInEasyFormat(self, user: UserViewModel) -> list[ResultTestEasyViewModel]:
+        return await self._repository.GetFromCreatedUser(user, True)
+
+    async def GetFromUserInEasyFormat(self, user: UserViewModel) -> list[ResultTestEasyViewModel]:
+        return await self._repository.GetFromUser(user, True)
 
     def __init__(self):
         self._repository: IResultTestRepository = IResultTestRepository.__subclasses__()[-1]()

@@ -30,7 +30,7 @@ class UserRepository(IUserRepository, AbstractDbRepository):
             await self.session.commit()
         except IntegrityError as e:
             await self.session.rollback()
-            user = await self.Get(UserViewModel.Create(aUser.ipAddress, aUser.userAgent))
+            user = await self.Get(UserViewModel.Create(aUser.ipaddress, aUser.user_agent))
             if user is None:
                 raise e
         user.SetToken(user.id)
@@ -39,26 +39,17 @@ class UserRepository(IUserRepository, AbstractDbRepository):
 
     async def Get(self, aUser: UserViewModel) -> UserViewModel:
         aUser.CanBeFind().raiseValidateException()
-        # todo cache
-        # result = self.cachedService.TryGet(f"User.Get.Id.{aUser.id}")
-        #
-        # if self.cachedService.result_last_operation:
-        # 	return result
-        # else:
-        # 	result = await self.session.get(User, aUser.id)
-        # 	self.cachedService.Set(f"User.Get.Id.{aUser.id}", result)
-        # 	return result
         user = None
         if aUser.id is not None:
             user = await self.session.get(User, aUser.id)
-        elif aUser.ipAddress is not None and aUser.userAgent is not None:
+        elif aUser.ipaddress is not None and aUser.user_agent is not None:
             user = (await self.session.execute(select(User)
                                                .where((User.ipAddress == aUser.ip_address) |
-                                                      (User.userAgent == aUser.userAgent)))).scalar()
-        elif aUser.ipAddress is not None:
+                                                      (User.userAgent == aUser.user_agent)))).scalar()
+        elif aUser.ipaddress is not None:
             user = (await self.session.execute(select(User).filter(User.ipAddress == aUser.ip_address))).scalar()
-        elif aUser.userAgent is not None:
-            user = (await self.session.execute(select(User).filter(User.userAgent == aUser.userAgent))).scalar()
+        elif aUser.user_agent is not None:
+            user = (await self.session.execute(select(User).filter(User.userAgent == aUser.user_agent))).scalar()
 
         if user is not None:
             return user.GetViewModel()

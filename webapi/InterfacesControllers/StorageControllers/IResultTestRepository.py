@@ -3,7 +3,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
-from webapi.ViewModel import ResultTestViewModel, UserViewModel, TestViewModel
+from webapi.ViewModel import ResultTestViewModel, UserViewModel, TestViewModel, ResultTestEasyViewModel
 
 
 class IResultTestRepository(object):
@@ -23,9 +23,13 @@ class IResultTestRepository(object):
         pass
 
     @abstractmethod
-    async def GetFromUser(self, aUser: UserViewModel) -> List[ResultTestViewModel]:
+    async def GetFromUser(self, aUser: UserViewModel, easy_format=False) -> List[ResultTestViewModel]:
         pass
 
     @abstractmethod
     async def GetFromTest(self, aUser: UserViewModel, aTest: TestViewModel) -> List[ResultTestViewModel]:
+        pass
+
+    @abstractmethod
+    async def GetFromCreatedUser(self, user, easy_format=False) -> List[ResultTestViewModel]:
         pass

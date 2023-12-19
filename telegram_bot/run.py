@@ -1,31 +1,24 @@
 import asyncio
-import difflib
 import enum
 import locale
 import logging
 import operator
-import os
 import sys
 import time
-import uuid
-import datetime
-import random
 from functools import reduce
 
-from PyQt5.QtChart import QChart
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication  # todo избавиться от зависимости от десктопа (скорее всего указатель на ответ не получится заменить)
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.dispatcher.filters import Command
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, MediaGroup, InputFile
 
 import config
 from ClientController import AsyncHttpClientController
-from webapi.ViewModel import *
 from desktop_app.TheoryWidgets import TheoryViewWidget
-from desktop_app.run import ViewResultTest
+from webapi.ViewModel import *
 
 aioclient = AsyncHttpClientController()
-bot = Bot(token=config.API_TOKEN)
+bot = Bot(token=config.TELEGRAM_API_TOKEN)
 dp = Dispatcher(bot)
 app = QApplication(sys.argv)
 
@@ -34,6 +27,10 @@ inline_run_test = InlineKeyboardButton("Начать прохождение те
 inline_view_questions = InlineKeyboardButton("Подробнее", callback_data="on_view_questions")
 inline_set_note = InlineKeyboardButton("Оставить примечание", callback_data="on_set_note")
 
+
+# todo добавить модели из десктопа
+# todo перенести как можно больше функционала в контроллеры, запросы к апи реализовать как у дестктопа
+# todo добавить данные и протестировать работоспособность
 
 class TelegramUser:
     class State(enum.Enum):
@@ -90,14 +87,6 @@ async def input_answer(message: types.Message):
     answer = user.answer
     await message.reply("Ответ засчитан")
     answer.text_answer = message.text
-    if answer.question.question_input_answer:
-        ratio = answer.question.question_input_answer.k_misspell
-        result_ratio = difflib.SequenceMatcher(None, answer.text_answer,
-                                               answer.question.question_input_answer.correct_answer, True).ratio()
-        if result_ratio > ratio:
-            answer.mark = answer.question.weight
-        else:
-            answer.mark = 0
 
 
 @dp.poll_answer_handler(lambda x: filter_by_state(TelegramUser.State.answer, x.user.id))
@@ -106,7 +95,9 @@ async def get_answers(poll_answer: types.PollAnswer):
     user.state = TelegramUser.State.answered
     answer = user.answer
     count_correct = current_count_correct = 0
-    for i, answer_test in enumerate(answer.question.question_choice.answers_test):
+    if not isinstance(answer.question, QuestionChoiceViewModel):
+        raise Exception("Not supported type question")
+    for i, answer_test in enumerate(answer.question.answers_test):
         if i in poll_answer.option_ids:
             answer.answers_test.append(answer_test)
             current_count_correct = current_count_correct + (1 if answer_test.correct else -1)
@@ -130,9 +121,9 @@ async def get_test(message: types.Message):
     ident = message.get_args()
     try:
         test: TestViewModel = await aioclient.get("/test", TestViewModel.GetFromId(None), aId=ident)
-        test.complitionTime = datetime.time.fromisoformat(test.complitionTime)
+        test.complition_time = datetime.time.fromisoformat(test.complition_time)
         # test = TestLogic().get(uuid.UUID(ident)) prev_code
-        user = TelegramUser.create(message.from_user.id).tests[test.id] = test
+        TelegramUser.create(message.from_user.id).tests[test.id] = test
     except Exception as e:
         test = None
         logging.warning("Произошла ошибка при попытке получить тест: ", exc_info=e)
@@ -141,12 +132,11 @@ async def get_test(message: types.Message):
                             "Перепроверьте его и попробуйте еще раз.")
         return
     logging.info(f"Получен тест: '{test.name}' по команде /test")
-    t = get_seconds(test.complitionTime) if test.complitionTime \
-        else sum(get_seconds(i.complitionTime) for i in test.questions)
+    t = get_seconds(test.complition_time) if test.complition_time \
+        else sum(get_seconds(i.complition_time) for i in test.questions)
     txt = "Неограниченное количество попыток."
     not_available_test_text = ""
-    count_attempts = 4
-    # count_attempts = TestLogic().get_count_attempts(test) prev_code
+    count_attempts = await aioclient.get("/available_count_attempts", int, test_id=ident)
     if count_attempts == 0:
         not_available_test_text = "\nНе осталось попыток для прохождения."
     if count_attempts is not None:
@@ -178,7 +168,7 @@ async def send_theory(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
     test = await aioclient.get("/test", TestViewModel.GetFromId(None), aId=callback_query.data[13:])
     # test: Test = TestLogic().get(uuid.UUID(callback_query.data[13:])) prev_code
-    study_time_text = f"\n\nПримерное время изучения *{test.theory.studyTime}*" if test.theory.studyTime else ""
+    study_time_text = f"\n\nПримерное время изучения *{test.theory.study_time}*" if test.theory.study_time else ""
     media_group = MediaGroup()
     for i, chapter in enumerate(test.theory.chapters):
         doc = InputFile(aioclient.base_url + "/chapter_html/" + chapter.id, chapter.name)
@@ -216,18 +206,18 @@ async def run_test(info: types.CallbackQuery):
     for i, question in enumerate(test.questions):
         user.state = TelegramUser.State.answer
         current_time = datetime.time(hour=1)
-        if question.complitionTime:
-            current_time = question.complitionTime
+        if question.complition_time:
+            current_time = datetime.time.fromisoformat(question.complition_time)
         text_question = f"\n\nВопрос: {question.name}"
         tmp = f"Вес вопроса: *{question.weight}*\nОставшиеся время: *{{0:%X}}*\n" \
               f"Вопрос *{i + 1}* из *{cnt}* {text_question}"
         header_msg = await bot.send_message(info.from_user.id, tmp, parse_mode='markdown')
         if hasattr(question, 'answersTest'):
-            poll = await bot.send_poll(info.from_user.id, question.name,
-                                       options=[i.text for i in question.answers_test],
-                                       allows_multiple_answers=True,
-                                       is_anonymous=False,
-                                       )
+            await bot.send_poll(info.from_user.id, question.name,
+                                options=[i.text for i in question.answers_test],
+                                allows_multiple_answers=True,
+                                is_anonymous=False,
+                                )
         if i == 0:
             start_time = time.time()
         is_timeout = False
@@ -253,7 +243,7 @@ async def run_test(info: types.CallbackQuery):
         if is_timeout:
             user.answer.mark = 0
         result_test.answers.append(user.answer)
-        if is_timeout and test.complitionTime:
+        if is_timeout and test.complition_time:
             await bot.send_message(info.from_user.id, "Упс... Время для прохождения теста закончилось.\n\n"
                                                       "Ваши ответы будут сохранены")
             break
@@ -278,7 +268,7 @@ async def view_result_test(callback_query: types.CallbackQuery):
     # result_test = ResultTestLogic().get(uuid.UUID(callback_query.data[14:])) prev_code
     current_mark = sum(i.mark for i in result_test.answers if i.mark)
     all_mark = sum(i.weight for i in result_test.test.questions)
-    not_check_mark = sum(i.question.weight for i in result_test.answers if i.mark is None)
+    sum(i.question.weight for i in result_test.answers if i.mark is None)
     mark = "баллов"
     if current_mark % 10 == 1 and current_mark != 11:
         mark = "балл"
@@ -320,18 +310,18 @@ async def view_questions(callback_query: types.CallbackQuery):
 
     mark = "Вопрос еще не проверен" if answer.mark is None else f"Балл *{answer.mark}* из *{answer.question.weight}*"
     info = f"*№{question_index+1} из {len(result_test.answers)}* \n\n" \
-           f"Вопрос: *{answer.question.name}*\n\n{mark}\nВремя прохождения: *{answer.complitionTime}*"
-    if answer.answer:
-        info += f"\n\nПолученный ответ: {answer.answer}"
-    if isinstance(answer.question, QuestionInputAnswerViewModel) and result_test.test.showAnswer:
-        info += f"\n\nПравильный ответ: {answer.question.correctAnswer}"
+           f"Вопрос: *{answer.question.name}*\n\n{mark}\nВремя прохождения: *{answer.complition_time}*"
+    if answer.text_answer:
+        info += f"\n\nПолученный ответ: {answer.text_answer}"
+    if isinstance(answer.question, QuestionInputAnswerViewModel) and result_test.test.show_answer:
+        info += f"\n\nПравильный ответ: {answer.question.correct_answer}"
     if isinstance(answer.question, QuestionChoiceViewModel):
         info += "\n"
         for test_answer in answer.question.answers_test:
             is_checked = "☑" if test_answer in answer.answers_test else "\t ☐\t"
             correct = "Правильный ответ" if test_answer.correct else "Неправильный ответ"
             info += f"\n{is_checked} - {test_answer.text}"
-            if result_test.test.showAnswer:
+            if result_test.test.show_answer:
                 info += f" - {correct}"
 
     ptr = answer.question.pointer
@@ -385,7 +375,7 @@ async def set_note(callback_query: types.CallbackQuery):
 async def get_available_tests(message: types.Message):
     user = TelegramUser.create(message.from_user.id)
     await message.reply("Вот список добавленных тестов:", reply_markup=InlineKeyboardMarkup(1).add(
-        *[InlineKeyboardButton(f"Тест: {test.name}", callback_data="on_get_test"+str(test.id)) for test in user.tests]
+        *[InlineKeyboardButton(f"Тест: {test.name}", callback_data="on_get_test"+str(test.id)) for test in user.tests.values()]
     ))
 
 

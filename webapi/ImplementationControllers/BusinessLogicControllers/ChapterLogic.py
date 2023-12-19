@@ -3,12 +3,22 @@
 import os.path
 from typing import List, Union
 
+import aiofiles
+
 from webapi.InterfacesControllers import *
 from webapi.ViewModel import ChapterTheoryViewModel, TheoryViewModel
 
 
 class ChapterLogic(IChapterLogic):
     path_to_chapters = '../chapters/'
+
+    def get_content_filename(self, chapter_id):
+        return f"{self.path_to_chapters}{chapter_id}.html"
+
+    async def SaveContentInFile(self, aChapter: ChapterTheoryViewModel):
+        assert aChapter is not None
+        async with aiofiles.open(self.get_content_filename(aChapter.id), 'w') as out_file:
+            await out_file.write(aChapter.content)
 
     async def GetContentByChapter(self, aChapter: ChapterTheoryViewModel, get_path_to_file=True) -> (
             Union)[list[str], list[ChapterTheoryViewModel]]:
@@ -19,11 +29,14 @@ class ChapterLogic(IChapterLogic):
         if get_path_to_file:
             return [self.path_to_chapters + str(i) + ".html" for i in ids]
         else:
-            result = []
+            chapters_with_content = []
             for i in ids:
-                with open(self.path_to_chapters + str(i) + ".html") as f:
-                    result.append(aChapter.Get(i).SetContent(f.read()))
-            return result
+                if not os.path.exists(self.get_content_filename(i)):
+                    chapters_with_content.append(aChapter.Get(i).SetContent(""))
+                    continue
+                async with aiofiles.open(self.get_content_filename(i), encoding='utf-8') as f:
+                    chapters_with_content.append(aChapter.Get(i).SetContent(await f.read()))
+            return chapters_with_content
 
     async def Create(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
         return await self._repository.Create(aChapter)
@@ -41,13 +54,12 @@ class ChapterLogic(IChapterLogic):
         chapter = await self._repository.Get(aChapter)
         if aChapter.content == "" and delegate_write is False:
             raise Exception("Необходимо добавить контент в главу перед загрузкой")
-        if overwrite is False and os.path.exists("chapters/" + aChapter.id):
+        if overwrite is False and os.path.exists(f"chapters/{aChapter.id}"):
             raise Exception("Файл главы теории уже добавлен, чтобы перезаписать установите overwrite=True")
         if delegate_write:
-            chapter.content = self.path_to_chapters + str(aChapter.id) + ".html"
+            chapter.content = f"{self.path_to_chapters}{aChapter.id}.html"
             return chapter
-        with open(self.path_to_chapters + str(aChapter.id) + ".html", "w") as f:
-            f.write(aChapter.content)
+        await self.SaveContentInFile(chapter)
         return chapter
 
     def __init__(self):

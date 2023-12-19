@@ -38,7 +38,7 @@ class QuestionRepository(IQuestionRepository, AbstractDbRepository):
         question = await self.session.get(Question, aQuestion.id)
         await self._validate_question(user.id, question)
         question.name = aQuestion.name
-        question.complition_time = aQuestion.complitionTime
+        question.complition_time = aQuestion.complition_time
         question.weight = aQuestion.weight
         question.pointer_to_answer = PointerToAnswer.CreateFrom(aQuestion.pointer)
         await self._validate_question(user.id, question)

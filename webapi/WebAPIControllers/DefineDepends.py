@@ -1,8 +1,11 @@
 import ipaddress
+import json
+import logging
 from typing import Union, Optional
 
 from fastapi import Response, Request, Cookie
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import JSONResponse
 
 from webapi.InterfacesControllers import IUserLogic, ICachedService
 from webapi.ViewModel import UserViewModel
@@ -37,8 +40,16 @@ async def get_user(request: Request,
         int_ipaddress = int(ipaddress.ip_address(request.client.host))
         try:
             user = await logic.RegisterOrAuthorize(UserViewModel.Create(int_ipaddress, user_agent))
-        except Exception as e:
+        except Exception:
             if user_agent is None:
                 raise Exception("Не заполнен UserAgent")
         response.set_cookie("token", user.token)
     return user
+
+
+async def catch_exceptions_middleware(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except BaseException as e:
+        logging.info("Произошла ошибка", exc_info=e)
+        return JSONResponse(content={"error": str(e.__class__.__name__), "detail": str(e)}, status_code=400)

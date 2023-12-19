@@ -5,6 +5,7 @@ import random
 import uuid
 from abc import ABCMeta, abstractmethod
 import datetime
+from dataclasses import dataclass
 from typing import List, Optional
 
 from .Validator import Validator
@@ -34,7 +35,7 @@ class AbstractModelView(object):
 
     @abstractmethod
     def __init__(self):
-        self.id: int = None
+        self.id: uuid.UUID = None
 
 
 class AnswerTestViewModel(AbstractModelView):
@@ -49,11 +50,15 @@ class AnswerTestViewModel(AbstractModelView):
         return AnswerTestViewModel(None, None, text, is_correct, [])
 
     def __init__(self, id_, question, text, is_correct, answers):
-        self.id: int = id_
+        self.id: uuid.UUID = id_
         self.question: QuestionChoiceViewModel = question
         self.text: str = text
-        self.isCorrect: bool = is_correct
+        self.is_correct: bool = is_correct
         self.answers: List[AnswerViewModel] = answers
+
+    @classmethod
+    def FromId(cls, id_: uuid.UUID):
+        return cls(id_, None, None, None, None)
 
 
 class AnswerViewModel(AbstractModelView):
@@ -64,28 +69,31 @@ class AnswerViewModel(AbstractModelView):
         return AnswerViewModel(0, answer, complition_time, question, result_test, mark=mark)
 
     @staticmethod
+    def Update(id_: uuid.UUID, mark: int):
+        return AnswerViewModel(id_, None, None, None, None, None, mark)
+
+    @staticmethod
     def CreateForPassintTest(text_answer: Optional[str]):
         return AnswerViewModel(0, text_answer, None, None, None)
 
-
-
     def CanBeCreated(self) -> Validator:
-        pass
+        return Validator.default()
 
     def AddAnswersTests(self, answers: List[AnswerTestViewModel]):
         self.answers_test.extend(answers)
+        return self
 
     def CanBeUpdated(self) -> Validator:
         return super().CanBeUpdated()
 
     def __init__(self, id_: int, answer, complition_time, question, result_test, answers_test=None, mark=None):
-        self.id: int = id_
+        self.id: uuid.UUID = id_
         self.mark: int = mark
-        self.answer: str = answer
-        self.complitionTime: datetime.datetime = complition_time
+        self.text_answer: str = answer
+        self.complition_time: datetime.time = complition_time
         self.question: QuestionViewModel = question
-        self.resultTest: ResultTestViewModel = result_test
-        self.answers_test: List[AnswerTestViewModel] = answers_test
+        self.result_test: ResultTestViewModel = result_test
+        self.answers_test: List[AnswerTestViewModel] = answers_test if answers_test is not None else []
 
 
 class ChapterTheoryViewModel(AbstractModelView):
@@ -128,7 +136,7 @@ class ChapterTheoryViewModel(AbstractModelView):
         return self
 
     def __init__(self, id_, name, theory, pointers):
-        self.id: int = id_
+        self.id: uuid.UUID = id_
         self.name: str = name
         self.theory: TheoryViewModel = theory
         self.pointers: List[PointerToAnswerViewModel] = pointers
@@ -156,10 +164,10 @@ class PointerToAnswerViewModel(AbstractModelView):
         return self
 
     def CanBeUpdated(self) -> Validator:
-        super().CanBeUpdated()
+        return super().CanBeUpdated()
 
     def __init__(self, id_, start, end, chapter, question):
-        self.id: int = id_
+        self.id: uuid.UUID = id_
         self.start: int = start
         self.end: int = end
         self.chapter: ChapterTheoryViewModel = chapter
@@ -190,12 +198,13 @@ class QuestionViewModel(AbstractModelView):
         return Validator.default()
 
     def __init__(self, id_, name, complition_time, pointer, test, weight: Optional[int] = None):
-        self.id: int = id_
+        self.id: uuid.UUID = id_
         self.name: str = name
-        self.complitionTime: datetime.datetime = complition_time
+        self.complition_time: datetime.time = complition_time
         self.weight: int = weight
         self.pointer: PointerToAnswerViewModel = pointer
         self.test: TestViewModel = test
+        self.type = self.__class__.__name__.replace("ViewModel", "")
 
     @classmethod
     def GetFromId(cls, aId):
@@ -219,13 +228,13 @@ class QuestionInputAnswerViewModel(QuestionViewModel):
         return self
 
     def SetCorrectAnswer(self, text_answer: str):
-        self.correctAnswer = text_answer
+        self.correct_answer = text_answer
         return self
 
     def __init__(self, id_, name, complition_time, pointer, test,
                  weight: Optional[float] = None, correctAnswer=None, k_misspell=1):
         super().__init__(id_, name, complition_time, pointer, test, weight)
-        self.correctAnswer: str = correctAnswer
+        self.correct_answer: str = correctAnswer
         self.k_misspell: float = k_misspell
 
 
@@ -260,16 +269,18 @@ class ResultTestViewModel(AbstractModelView):
         self.answers.append(aAnswer)
         return self
 
-    def __init__(self, id_: int, user, test, answers, startDate, completedDate: Optional[datetime.datetime],
+    def __init__(self, id_: uuid.UUID, user, test, answers, startDate, completedDate: Optional[datetime.datetime],
                  note: Optional[str]):
-        self.id = id_
+        self.id: uuid.UUID = id_
         self.user: UserViewModel = user
         self.test: TestViewModel = test
         self.answers: List[AnswerViewModel] = answers
-        self.startDate: datetime.datetime = startDate
-        self.completedDate: datetime.datetime = completedDate
+        self.start_date: datetime.datetime = startDate
+        self.completed_date: datetime.datetime = completedDate
         self.note: str = note
-        self.number_current_question: Optional[QuestionViewModel] = 0
+        self.has_change_mark = None
+        if self.test is not None and self.user is not None and self.test.user is not None:
+            self.has_change_mark = self.test.user.id == self.user.id
 
 
 class TestViewModel(AbstractModelView):
@@ -302,14 +313,14 @@ class TestViewModel(AbstractModelView):
         return Validator.default()
 
     def __init__(self, id_, complitionTime, name, countAttempts, user, theory, shuffle, showAnswer, questions=None):
-        self.id: int = id_
-        self.complitionTime: datetime.datetime = complitionTime
+        self.id: uuid.UUID = id_
+        self.complition_time: datetime.datetime = complitionTime
         self.name: str = name
-        self.countAttempts: int = countAttempts
+        self.count_attempts: int = countAttempts
         self.user: UserViewModel = user
         self.theory: TheoryViewModel = theory
         self.shuffle: bool = shuffle
-        self.showAnswer: bool = showAnswer
+        self.show_answer: bool = showAnswer
         self.questions: list[QuestionViewModel] = questions if questions else []
 
 
@@ -342,10 +353,14 @@ class TheoryViewModel(AbstractModelView):
         self.creator = creator
         return self
 
+    def AddChapters(self, *chapters):
+        self.chapters.extend(chapters)
+        return self
+
     def __init__(self, id_, name, studyTime, tests, chapters, creator):
-        self.id: int = id_
+        self.id: uuid.UUID = id_
         self.name: str = name
-        self.studyTime: Optional[datetime.datetime] = studyTime
+        self.study_time: Optional[datetime.datetime] = studyTime
         self.tests: List[TestViewModel] = tests if tests is not None else []
         self.chapters: List[ChapterTheoryViewModel] = chapters
         self.creator = creator
@@ -367,13 +382,13 @@ class UserViewModel(AbstractModelView):
         return Validator.default()
 
     def CanBeFind(self) -> Validator:
-        if self.id is None and self.ip_address is None and self.userAgent is None:
+        if self.id is None and self.ip_address is None and self.user_agent is None:
             return Validator(UserViewModel, "id|ipaddress|useragent",
                              "для поиска должно быть заполнено хотя бы одно поле")
         return Validator.default()
 
     def AddResultTest(self, aResultTest):
-        self.resultsTests.append(aResultTest)
+        self.results_tests.append(aResultTest)
         return self
 
     def AddTest(self, aTest: TestViewModel):
@@ -384,17 +399,17 @@ class UserViewModel(AbstractModelView):
         self.token = token
 
     def __init__(self, id_, ipAddress, userAgent, tests, resultsTests):
-        self.id: int = id_
-        self.ipAddress: int = ipAddress
-        self.userAgent: str = userAgent
+        self.id: uuid.UUID = id_
+        self.ipaddress: int = ipAddress
+        self.user_agent: str = userAgent
         self.tests: List[TestViewModel] = tests
-        self.resultsTests: List[ResultTestViewModel] = resultsTests
+        self.results_tests: List[ResultTestViewModel] = resultsTests
         self.token: str = ""
 
     @property
     def ip_address(self):
-        if self.ipAddress is not None:
-            return str(ipaddress.ip_address(self.ipAddress))
+        if self.ipaddress is not None:
+            return str(ipaddress.ip_address(self.ipaddress))
         return None
 
 
@@ -416,7 +431,7 @@ class StatePassingTestViewModel:
     def add_answer(self, answer: AnswerViewModel):
         self._check_completed_result_test()
         answer.question = self.current_question
-        answer.complitionTime = self.current_complition_time
+        answer.complition_time = self.current_complition_time
         self.__result_test.answers.append(answer)
         self.start_datetime = datetime.datetime.now()
         self.number_current_question += 1
@@ -445,10 +460,22 @@ class StatePassingTestViewModel:
         raise Exception("Установлено некорректный номер вопроса")
 
     def _check_completed_result_test(self):
-        if self.__result_test.completedDate is not None or self.__completed:
+        if self.__result_test.completed_date is not None or self.__completed:
             raise Exception("Тест уже завершен")
 
-    def GetViewModel(self) -> 'StatePassingTestViewModel':
+    def GetViewModel(self) -> dict:
         return {"answers": self.__result_test.answers,
                 "current_question": self.current_question,
                 "test": self.__result_test.test}
+
+
+@dataclass
+class ResultTestEasyViewModel:
+    id: uuid.UUID
+    completed_date: datetime.datetime
+    name_test: str
+    mark: int
+    all_mark: int
+    complition_time: datetime.time
+    note: str
+    checked: bool

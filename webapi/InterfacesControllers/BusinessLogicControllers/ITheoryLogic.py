@@ -23,9 +23,9 @@ class ITheoryLogic(object):
         pass
 
     @abstractmethod
-    async def GetAllFromUser(self, user: UserViewModel) -> List[TheoryViewModel]:
+    async def GetAllFromUser(self, user: UserViewModel, get_content: bool) -> List[TheoryViewModel]:
         pass
 
     @abstractmethod
-    def MergeChaptersToPdf(self, aTheory: TheoryViewModel, aPath=None) -> str:
+    async def MergeChaptersToPdf(self, aTheory: TheoryViewModel, aPath=None) -> str:
         pass

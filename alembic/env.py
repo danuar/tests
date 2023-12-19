@@ -8,7 +8,7 @@ import os
 # for 'autogenerate' support
 # from myapp import mymodel
 from webapi.db import *
-
+from ..config import *
 target_metadata = Base.metadata
 
 
@@ -69,11 +69,11 @@ def run_migrations_online():
             context.run_migrations()
 
 
-HOST = os.getenv('POSTGRES_HOST', 'localhost')
-PORT = os.getenv('POSTGRES_PORT', 5432)
-DB = os.getenv('POSTGRES_DB', 'ph_tests')
-USER = os.getenv('POSTGRES_USER', 'postgres')
-PASSWORD = os.getenv('POSTGRES_PASSWORD', '1234')
+HOST = os.getenv('POSTGRES_HOST', DATABASE_HOST)
+PORT = os.getenv('POSTGRES_PORT', DATABASE_PORT)
+DB = os.getenv('POSTGRES_DB', DATABASE_NAME)
+USER = os.getenv('POSTGRES_USER', DATABASE_USER)
+PASSWORD = os.getenv('POSTGRES_PASSWORD', DATABASE_PASSWORD)
 
 config.set_main_option('sqlalchemy.url', f'postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB}')
 

@@ -12,25 +12,27 @@ from webapi.ViewModel import UserViewModel, TheoryViewModel, ChapterTheoryViewMo
 
 class UserSchema(BaseModel):
     ipaddress: str
-    userAgent: str
+    user_agent: str
 
 
 class TheorySchema(BaseModel, TheoryViewModel):
     name: str
-    studyTime: Optional[datetime.time]
+    study_time: Optional[datetime.time]
 
     class WTChapterTheorySchema(BaseModel):
         name: str
+        content: Optional[str] = None
 
     chapters: Optional[list[WTChapterTheorySchema]] = Field(default_factory=lambda: [])
 
     def GetViewModel(self):
-        return TheoryViewModel.Create(self.name, None, aStudyTime=self.studyTime,
-                                      chapters=[ChapterTheoryViewModel.Create(i.name, None) for i in self.chapters])
+        chapters = [ChapterTheoryViewModel.Create(i.name, None).SetContent(i.content) for i in self.chapters]
+        return TheoryViewModel.Create(self.name, None, aStudyTime=self.study_time, chapters=chapters)
 
 
 class ChapterTheorySchema(BaseModel, ChapterTheoryViewModel):
     name: str
+    content: Optional[str] = None
     theory: Union[TheorySchema, uuid.UUID]
 
 
@@ -61,7 +63,7 @@ class PointerToAnswerSchema(BaseModel):
 
 class AnswerTestSchema(BaseModel):
     text: str
-    isCorrect: bool = Field(False)
+    is_correct: bool = Field(False)
 
 
 class BaseQuestionSchema(BaseModel, metaclass=abc.ABCMeta):
@@ -89,11 +91,11 @@ class QuestionUpdateSchema(BaseModel):
 
 
 class QuestionChoiceSchema(BaseQuestionSchema):
-    answer_choices_for_test: list[AnswerTestSchema]
+    answers_test: list[AnswerTestSchema]
 
     def GetViewModel(self):
         return self.CreateQuestion(QuestionChoiceViewModel).AddAnswers(
-            [AnswerTestViewModel.CreateInQuestion(i.text, i.isCorrect) for i in self.answer_choices_for_test])
+            [AnswerTestViewModel.CreateInQuestion(i.text, i.is_correct) for i in self.answers_test])
 
 
 class QuestionInputAnswerSchema(BaseQuestionSchema):
@@ -114,7 +116,7 @@ class QuestionNotCheckSchema(BaseQuestionSchema):
 class TestSchema(BaseModel):
     name: str
     theory: Union[uuid.UUID, TheorySchema]
-    questions: list[Union[QuestionChoiceSchema, QuestionNotCheckSchema, QuestionInputAnswerSchema]]
+    questions: list[Union[QuestionChoiceSchema, QuestionInputAnswerSchema, QuestionNotCheckSchema]]
     count_attempts: Union[None, int] = Field(
         default=None, gt=0,
         title="Количество попыток прохождения для одного человека. По умолчанию неограниченное количество")
@@ -138,7 +140,7 @@ class TestUpdateSchema(BaseModel):
 
 class AnswerSchema(BaseModel):
     text_answer: Optional[str]
-    complition_time: datetime.datetime
+    complition_time: datetime.time
     question_id: uuid.UUID
     answers_test: list[uuid.UUID]
 
@@ -156,7 +158,7 @@ class ResultTestUpdateSchema(BaseModel):
 
 class AnswerForCurrentQuestionSchema(BaseModel):
     text_answer: Optional[str]
-    answers: Optional[list[AnswerTestSchema]]
+    answers: Optional[list[uuid.UUID]]
 
     @classmethod
     @root_validator
@@ -166,3 +168,8 @@ class AnswerForCurrentQuestionSchema(BaseModel):
         if text is None or answers is None:
             raise ValueError("Должен быть заполнен либо текст ответа, либо выбран вариант ответа")
         return values
+
+
+class AnswerWithMark(BaseModel):
+    mark: int = Field(ge=0)
+    answer_id: uuid.UUID
