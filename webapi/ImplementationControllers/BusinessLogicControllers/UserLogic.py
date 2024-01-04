@@ -1,8 +1,6 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
-from typing import List
-
 from webapi.InterfacesControllers.BusinessLogicControllers.IUserLogic import IUserLogic
 from webapi.InterfacesControllers.StorageControllers.IUserRepository import IUserRepository
 from webapi.ViewModel import UserViewModel

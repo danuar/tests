@@ -2,7 +2,7 @@
 # -*- coding: UTF-8 -*-
 from typing import List
 
-from sqlalchemy import update, select
+from sqlalchemy import select
 from sqlalchemy.engine import Result
 
 from webapi.InterfacesControllers import ITheoryRepository, ICachedService

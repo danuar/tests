@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 import uuid
-
 from typing import List
 
 from classy_fastapi import post, put, get
@@ -9,7 +8,7 @@ from fastapi import Depends
 
 from webapi.InterfacesControllers import ITestLogic
 from webapi.SchemasModel import TestSchema, TestUpdateSchema
-from webapi.ViewModel import TestViewModel, TheoryViewModel, ChapterTheoryViewModel
+from webapi.ViewModel import TestViewModel
 from webapi.WebAPIControllers.AbstractController import AbstractController
 from webapi.WebAPIControllers.DefineDepends import get_user
 

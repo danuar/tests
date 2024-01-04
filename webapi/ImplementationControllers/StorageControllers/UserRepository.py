@@ -1,18 +1,14 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
-from typing import List
 
-from asyncpg import UniqueViolationError
 from sqlalchemy import select
-from sqlalchemy.engine import Result
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession, AsyncSessionTransaction
 
-from webapi.db import User
 from webapi.InterfacesControllers.StorageControllers.AbstractDbRepository import AbstractDbRepository
 from webapi.InterfacesControllers.StorageControllers.ICachedService import ICachedService
 from webapi.InterfacesControllers.StorageControllers.IUserRepository import IUserRepository
 from webapi.ViewModel import UserViewModel
+from webapi.db import User
 from webapi.db.DbSession import DbSession
 
 

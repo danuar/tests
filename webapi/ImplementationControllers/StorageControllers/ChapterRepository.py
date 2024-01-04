@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
-from typing import List
 
 from sqlalchemy import update
 

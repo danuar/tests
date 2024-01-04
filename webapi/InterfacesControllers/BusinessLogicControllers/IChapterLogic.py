@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 from abc import ABCMeta, abstractmethod
-from typing import List, Union
+from typing import Union
 
 from webapi.ViewModel import ChapterTheoryViewModel
 

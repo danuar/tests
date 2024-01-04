@@ -2,7 +2,7 @@
 # -*- coding: UTF-8 -*-
 from typing import List
 
-from webapi.InterfacesControllers import IQuestionLogic, IQuestionRepository, IUserRepository
+from webapi.InterfacesControllers import IQuestionLogic, IQuestionRepository
 from webapi.ViewModel import QuestionViewModel, TestViewModel
 
 

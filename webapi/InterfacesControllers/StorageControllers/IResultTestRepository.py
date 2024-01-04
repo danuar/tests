@@ -3,7 +3,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
-from webapi.ViewModel import ResultTestViewModel, UserViewModel, TestViewModel, ResultTestEasyViewModel
+from webapi.ViewModel import ResultTestViewModel, UserViewModel, TestViewModel
 
 
 class IResultTestRepository(object):

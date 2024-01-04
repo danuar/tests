@@ -2,7 +2,6 @@ import platform
 import uuid
 from typing import Optional
 
-from ClientController import HttpClientController
 from desktop_app.Controllers.QtHttpClientController import QtHttpClientController
 from desktop_app.Models import ResultTest, Answer, ResultTestEasy
 

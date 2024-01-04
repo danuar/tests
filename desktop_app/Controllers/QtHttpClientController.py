@@ -1,9 +1,7 @@
-from typing import Type, Optional
+from typing import Type
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QWindow
-from PyQt5.QtWidgets import QWidget, QApplication, QFormLayout, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFrame, \
-    QInputDialog, QMessageBox, QDialog
+from PyQt5.QtWidgets import QApplication, QFormLayout, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QDialog
 
 from ClientController import HttpClientController
 

@@ -6,13 +6,11 @@ import zipfile
 from io import BytesIO
 from typing import List
 
-import aiofiles
-from classy_fastapi import post, get, put, delete
+from classy_fastapi import post, get, put
 from fastapi import Depends
 from fastapi.responses import FileResponse
 from starlette.responses import StreamingResponse
 
-from webapi.ImplementationControllers import ChapterLogic
 from webapi.InterfacesControllers import ITheoryLogic, IChapterLogic
 from webapi.SchemasModel import TheorySchema
 from webapi.ViewModel import TheoryViewModel, ChapterTheoryViewModel

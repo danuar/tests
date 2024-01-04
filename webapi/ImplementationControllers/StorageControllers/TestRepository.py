@@ -5,13 +5,12 @@ from typing import List
 
 from sqlalchemy import update, select, func
 from sqlalchemy.engine import Result
-from sqlalchemy.orm import joinedload, subqueryload, selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from webapi.InterfacesControllers import ITestRepository, ICachedService, IUserRepository
 from webapi.InterfacesControllers.StorageControllers.AbstractDbRepository import AbstractDbRepository
 from webapi.ViewModel import UserViewModel, TestViewModel
-from webapi.db import DbSession, Test, ResultTest, Question, QuestionChoice, Theory, QuestionInputAnswer, \
-    QuestionNotCheck
+from webapi.db import DbSession, Test, ResultTest, Question, QuestionChoice, Theory
 
 _cached_service: ICachedService = ICachedService.__subclasses__()[-1]()
 

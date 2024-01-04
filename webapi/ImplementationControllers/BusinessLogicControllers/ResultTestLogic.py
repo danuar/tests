@@ -3,7 +3,7 @@
 import datetime
 from typing import List
 
-from webapi.InterfacesControllers import IResultTestLogic, IResultTestRepository, IUserRepository, ITestRepository
+from webapi.InterfacesControllers import IResultTestLogic, IResultTestRepository, ITestRepository
 from webapi.ViewModel import ResultTestViewModel, UserViewModel, TestViewModel, ResultTestEasyViewModel
 
 

@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from dataclasses import dataclass, Field, field
+from dataclasses import dataclass, field
 from typing import Optional, Union
 from uuid import UUID
 

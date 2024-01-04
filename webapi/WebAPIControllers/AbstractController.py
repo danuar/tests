@@ -1,4 +1,4 @@
-from classy_fastapi import Routable, get
+from classy_fastapi import Routable
 from fastapi import FastAPI
 
 

@@ -1,9 +1,6 @@
-import asyncio
-import os
 import platform
 import uuid
 
-from ClientController import HttpClientController
 from desktop_app.Controllers.QtHttpClientController import QtHttpClientController
 from desktop_app.Models import Test
 

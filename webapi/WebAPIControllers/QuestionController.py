@@ -2,7 +2,7 @@
 # -*- coding: UTF-8 -*-
 import time
 import uuid
-from typing import List, Union
+from typing import Union
 
 from classy_fastapi import post, get, put, delete
 from fastapi import Depends
@@ -10,8 +10,7 @@ from fastapi import Depends
 from webapi.InterfacesControllers import IQuestionLogic
 from webapi.SchemasModel import QuestionChoiceSchema, QuestionNotCheckSchema, QuestionInputAnswerSchema, \
     QuestionUpdateSchema
-from webapi.ViewModel import QuestionViewModel, QuestionChoiceViewModel, QuestionInputAnswerViewModel, \
-    QuestionNotCheckViewModel, AnswerTestViewModel, TestViewModel
+from webapi.ViewModel import QuestionViewModel, TestViewModel
 from webapi.WebAPIControllers.AbstractController import AbstractController
 from webapi.WebAPIControllers.DefineDepends import get_user
 

@@ -1,11 +1,5 @@
-import asyncio
-import json
-import os
 import platform
 
-import jsonpickle
-
-from ClientController import HttpClientController, AsyncHttpClientController
 from desktop_app.Controllers.QtHttpClientController import QtHttpClientController
 from desktop_app.Models import Theory
 

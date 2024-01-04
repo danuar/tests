@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 import uuid
-from typing import List
 
 from classy_fastapi import get, post, put
 from fastapi import Depends

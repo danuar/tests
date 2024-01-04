@@ -1,7 +1,6 @@
 import ipaddress
-import json
 import logging
-from typing import Union, Optional
+from typing import Optional
 
 from fastapi import Response, Request, Cookie
 from sqlalchemy.ext.asyncio import AsyncSession

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 import os.path
-from typing import List, Union
+from typing import Union
 
 import aiofiles
 

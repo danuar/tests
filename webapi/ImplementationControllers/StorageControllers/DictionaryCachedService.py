@@ -2,8 +2,6 @@
 # -*- coding: UTF-8 -*-
 import datetime
 
-from typing import List
-
 import jsonpickle
 
 from webapi.InterfacesControllers.StorageControllers.ICachedService import ICachedService

@@ -6,20 +6,17 @@ import difflib
 import operator
 import uuid
 from functools import reduce
-from threading import Timer
 from typing import List, Optional
 
-from sqlalchemy import select, update, func
-from sqlalchemy.ext.asyncio import AsyncSessionTransaction, AsyncResult
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncResult
 from sqlalchemy.orm import joinedload, selectinload
-from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.sql.base import Options
 
 from webapi.InterfacesControllers import IResultTestRepository, ICachedService
 from webapi.InterfacesControllers.StorageControllers.AbstractDbRepository import AbstractDbRepository
 from webapi.ViewModel import ResultTestViewModel, UserViewModel, TestViewModel, ResultTestEasyViewModel
-from webapi.db import DbSession, ResultTest, Test, Question, Answer, QuestionChoice, QuestionInputAnswer, \
-    QuestionNotCheck, answer_user_by_answer_test, PointerToAnswer, Theory
+from webapi.db import DbSession, ResultTest, Test, Question, Answer, answer_user_by_answer_test, Theory
 
 _cached_service: ICachedService = ICachedService.__subclasses__()[-1]()
 

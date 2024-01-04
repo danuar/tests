@@ -2,7 +2,7 @@
 # -*- coding: UTF-8 -*-
 from typing import List
 
-from webapi.InterfacesControllers import ITestLogic, ITestRepository, IUserRepository
+from webapi.InterfacesControllers import ITestLogic, ITestRepository
 from webapi.ViewModel import TestViewModel, UserViewModel
 
 

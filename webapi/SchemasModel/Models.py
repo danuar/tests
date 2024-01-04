@@ -5,7 +5,7 @@ from typing import Optional, Union, Type
 
 from pydantic import BaseModel, Field, root_validator
 
-from webapi.ViewModel import UserViewModel, TheoryViewModel, ChapterTheoryViewModel, QuestionChoiceViewModel, \
+from webapi.ViewModel import TheoryViewModel, ChapterTheoryViewModel, QuestionChoiceViewModel, \
     QuestionViewModel, AnswerTestViewModel, QuestionInputAnswerViewModel, TestViewModel, PointerToAnswerViewModel, \
     QuestionNotCheckViewModel
 

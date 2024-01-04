@@ -3,7 +3,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
-from webapi.ViewModel import TheoryViewModel, ChapterTheoryViewModel, UserViewModel
+from webapi.ViewModel import TheoryViewModel, UserViewModel
 
 
 class ITheoryLogic(object):
