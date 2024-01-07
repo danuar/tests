@@ -36,12 +36,12 @@ class ResultTestRepository(IResultTestRepository, AbstractDbRepository):
         return [ResultTestEasyViewModel(i.id, i.completed_date, i.test.name,
                                         sum(j.mark for j in i.answers if j.mark),
                                         sum(j.weight for j in i.test.questions),
-                                        reduce(operator.add, (
+                                        (datetime.datetime.min + reduce(operator.add, (
                                             datetime.timedelta(
                                                 hours=j.complition_time.hour,
                                                 minutes=j.complition_time.minute,
                                                 seconds=j.complition_time.second)
-                                            for j in i.test.questions if j.complition_time), datetime.timedelta()),
+                                            for j in i.answers if j.complition_time), datetime.timedelta())).time(),
                                         i.note,
                                         any(j.mark is None for j in i.answers)) for i in result.unique().scalars()]
 

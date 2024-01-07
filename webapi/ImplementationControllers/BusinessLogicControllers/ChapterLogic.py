@@ -17,7 +17,7 @@ class ChapterLogic(IChapterLogic):
 
     async def SaveContentInFile(self, aChapter: ChapterTheoryViewModel):
         assert aChapter is not None
-        async with aiofiles.open(self.get_content_filename(aChapter.id), 'w') as out_file:
+        async with aiofiles.open(self.get_content_filename(aChapter.id), 'w', encoding='utf-8') as out_file:
             await out_file.write(aChapter.content)
 
     async def GetContentByChapter(self, aChapter: ChapterTheoryViewModel, get_path_to_file=True) -> (

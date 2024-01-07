@@ -48,7 +48,7 @@ class ChapterController(AbstractController):
     async def load_content_chapter_by_id(self, id_: uuid.UUID, file: UploadFile = File(media_type="text/html"),
                                          overwrite: bool = True):
         chapter = await self._logic.LoadChapter(ChapterTheoryViewModel.Get(id_), overwrite, delegate_write=True)
-        async with aiofiles.open(chapter.content, 'wb') as out_file:
+        async with aiofiles.open(chapter.content, 'wb', encoding='utf-8') as out_file:
             while content := await file.read(1024):  # async read chunk
                 await out_file.write(content)
         chapter.content = None

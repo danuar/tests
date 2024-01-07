@@ -42,6 +42,8 @@ async def get_user(request: Request,
         except Exception:
             if user_agent is None:
                 raise Exception("Не заполнен UserAgent")
+        if user is None:
+            logging.warning(f"Не удалось получить пользователя: {int_ipaddress=} {user_agent=}, {token=}")
         response.set_cookie("token", user.token)
     return user
 

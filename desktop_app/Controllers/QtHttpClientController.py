@@ -15,12 +15,14 @@ class QtHttpClientController(HttpClientController):
 
         label = QLabel(str(e))
         label.setWordWrap(True)
+        label_request_body = QLabel(str(request_body))
+        label_request_body.setWordWrap(True)
 
         form_layout = QFormLayout()
         form_layout.addRow("Url", QLabel(url))
         form_layout.addRow("Method", QLabel(method))
         form_layout.addRow("ResponseType", QLabel(ResponseType.__name__))
-        form_layout.addRow("RequestBody", QLabel(str(request_body, wordWrap=True)))
+        form_layout.addRow("RequestBody", label_request_body)
         form_layout.addRow("QueryParams", QLabel(str(query_params)))
         form_layout.addRow("Exception", label)
 
