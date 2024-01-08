@@ -39,7 +39,8 @@ class AnswerTest(BaseModel):
 
     @staticmethod
     def CreateFrom(answer: AnswerTestViewModel):
-        return AnswerTest(text=answer.text, correct=answer.is_correct, question_choice_id=answer.question.id,
+        return AnswerTest(text=answer.text, correct=answer.is_correct,
+                          question_choice_id=answer.question.id if answer.question else None,
                           id=answer.id,
                           answers=[Answer.CreateFrom(i) for i in answer.answers])
 
@@ -173,7 +174,7 @@ class Test(BaseModel):
                              self.creator.GetViewModel() if load_user else None,
                              self.theory.GetViewModel(load_user=load_user) if load_theory and 'theory' in self.__dict__ else TheoryViewModel.GetFromId(self.theory_id),
                              self.shuffle, self.show_answer,
-                             [i.GetViewModel() for i in self.questions] if load_questions and 'questions' in self.__dict__ else None)
+                             [i.GetViewModel(load_test=False) for i in self.questions] if load_questions and 'questions' in self.__dict__ else None)
 
     @staticmethod
     def CreateFrom(test: TestViewModel):
@@ -298,7 +299,7 @@ class QuestionChoice(BaseModel):
     @staticmethod
     def CreateFrom(q: QuestionChoiceViewModel):
         res = QuestionChoice(id=q.id, question=Question.CreateFrom(q),
-                             answers_test=[AnswerTest.CreateFrom(i) for i in q.answers_test])
+                             answers_test=[AnswerTest.CreateFrom(i) for i in q.answers_test if i])
         res.question.question_choice = res
         return res
 

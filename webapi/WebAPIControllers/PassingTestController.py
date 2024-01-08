@@ -19,14 +19,14 @@ class PassingTestController(AbstractController):
         return self._logic.get_current_question(user)
 
     @post("/answer")
-    def SendAnswerForCurrentQuestion(self, answer: AnswerForCurrentQuestionSchema, user=Depends(get_user)):
+    def send_answer_for_current_question(self, answer: AnswerForCurrentQuestionSchema, user=Depends(get_user)):
         answervm = (AnswerViewModel.CreateForPassintTest(answer.text_answer)
                     .AddAnswersTests([AnswerTestViewModel.FromId(i) for i in answer.answers]))
         self._logic.add_answer_in_result(user, answervm)
         return "Ответ успешно добавлен"
 
     @post("/end_test")
-    async def CompleteTest(self, user=Depends(get_user)):
+    async def complete_test(self, user=Depends(get_user)):
         return await self._logic.complete_test(user)
 
     def __init__(self):

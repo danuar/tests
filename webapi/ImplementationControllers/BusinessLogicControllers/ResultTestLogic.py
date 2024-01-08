@@ -9,7 +9,7 @@ from webapi.ViewModel import ResultTestViewModel, UserViewModel, TestViewModel, 
 
 class ResultTestLogic(IResultTestLogic):
     async def GetFromCreatedUser(self, user) -> List[ResultTestViewModel]:
-        return await self._repository.GetFromCreatedUser(user)
+        return [i.HideAnswer() for i in await self._repository.GetFromCreatedUser(user)]
 
     async def Create(self, aResult: ResultTestViewModel) -> ResultTestViewModel:
         aResult.start_date = datetime.datetime.now()
@@ -21,17 +21,17 @@ class ResultTestLogic(IResultTestLogic):
         return await self._repository.Update(aUser, aResult)
 
     async def Get(self, aUser: UserViewModel, aResult: ResultTestViewModel) -> ResultTestViewModel:
-        return await self._repository.Get(aUser, aResult)
+        return (await self._repository.Get(aUser, aResult)).HideAnswer()
 
     async def GetFromUser(self, aUser: UserViewModel) -> List[ResultTestViewModel]:
-        return await self._repository.GetFromUser(aUser)
+        return [i.HideAnswer() for i in await self._repository.GetFromUser(aUser)]
 
     async def CompleteTest(self, aUser: UserViewModel, aResult: ResultTestViewModel) -> ResultTestViewModel:
         aResult.completed_date = datetime.datetime.now()
-        return await self._repository.Update(aUser, aResult)
+        return (await self._repository.Update(aUser, aResult)).HideAnswer()
 
     async def GetFromTest(self, aUser: UserViewModel, aTest: TestViewModel) -> List[ResultTestViewModel]:
-        return await self._repository.GetFromTest(aUser, aTest)
+        return [i.HideAnswer() for i in await self._repository.GetFromTest(aUser, aTest)]
 
     async def GetFromCreatedUserInEasyFormat(self, user: UserViewModel) -> list[ResultTestEasyViewModel]:
         return await self._repository.GetFromCreatedUser(user, True)

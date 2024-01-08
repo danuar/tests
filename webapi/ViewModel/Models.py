@@ -126,6 +126,7 @@ class ChapterTheoryViewModel(AbstractModelView):
 
     def AddPointerToAnswer(self, pointer):
         self.pointers.append(pointer)
+        return self
 
     def SetTheory(self, theory):
         self.theory = theory
@@ -197,6 +198,9 @@ class QuestionViewModel(AbstractModelView):
     def CanBeCreated(self) -> Validator:
         return Validator.default()
 
+    def HideAnswer(self):
+        return self
+
     def __init__(self, id_, name, complition_time, pointer, test, weight: Optional[int] = None):
         self.id: uuid.UUID = id_
         self.name: str = name
@@ -216,6 +220,12 @@ class QuestionChoiceViewModel(QuestionViewModel):
         self.answers_test.extend(aAnswers)
         return self
 
+    def HideAnswer(self):
+        super().HideAnswer()
+        if hasattr(self, 'answers_test'):
+            delattr(self, 'answers_test')
+        return self
+
     def __init__(self, id_, name, complition_time, pointer, test,
                  weight: Optional[int] = None):
         super().__init__(id_, name, complition_time, pointer, test, weight)
@@ -229,6 +239,12 @@ class QuestionInputAnswerViewModel(QuestionViewModel):
 
     def SetCorrectAnswer(self, text_answer: str):
         self.correct_answer = text_answer
+        return self
+
+    def HideAnswer(self):
+        super().HideAnswer()
+        if hasattr(self, 'correct_answer'):
+            delattr(self, 'correct_answer')
         return self
 
     def __init__(self, id_, name, complition_time, pointer, test,
@@ -267,6 +283,14 @@ class ResultTestViewModel(AbstractModelView):
 
     def AddAnswer(self, aAnswer: AnswerViewModel):
         self.answers.append(aAnswer)
+        return self
+
+    def HideAnswer(self):
+        if self.test is not None and self.test.show_answer:
+            return self
+        elif self.test is not None:
+            self.test.HideAnswer()
+        [answer.question.HideAnswer() for answer in self.answers if answer is not None and answer.question is not None]
         return self
 
     def __init__(self, id_: uuid.UUID, user, test, answers, startDate, completedDate: Optional[datetime.datetime],
@@ -311,6 +335,11 @@ class TestViewModel(AbstractModelView):
 
     def CanBeUpdated(self) -> Validator:
         return Validator.default()
+
+    def HideAnswer(self, not_hide_answer_if_expire_flag_show_answer=False):
+        if not (not_hide_answer_if_expire_flag_show_answer and self.show_answer):
+            self.questions = [q.HideAnswer() for q in self.questions]
+        return self
 
     def __init__(self, id_, complitionTime, name, countAttempts, user, theory, shuffle, showAnswer, questions=None):
         self.id: uuid.UUID = id_
@@ -465,7 +494,7 @@ class StatePassingTestViewModel:
 
     def GetViewModel(self) -> dict:
         return {"answers": self.__result_test.answers,
-                "current_question": self.current_question,
+                "current_question": self.current_question.HideAnswer(),
                 "test": self.__result_test.test}
 
 

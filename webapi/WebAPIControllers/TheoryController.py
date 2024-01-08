@@ -48,8 +48,7 @@ class TheoryController(AbstractController):
             for fpath in [os.path.abspath(p) for p in paths if os.path.exists(p)]:
                 temp_zip.write(fpath, os.path.join("/chapters/", os.path.split(fpath)[1]))
         return StreamingResponse(
-            iter([zip_io.getvalue()]),
-            media_type="application/x-zip-compressed",
+            iter([zip_io.getvalue()]),            media_type="application/x-zip-compressed",
             headers={"Content-Disposition": f"attachment; filename=chapters.zip"}
         )
 

@@ -17,13 +17,13 @@ class QuestionLogic(IQuestionLogic):
         return await self._repository.Delete(aUser, aQuestion)
 
     async def Get(self, aQuestion: QuestionViewModel) -> QuestionViewModel:
-        return await self._repository.Get(aQuestion)
+        return (await self._repository.Get(aQuestion)).HideAnswer()
 
     async def DeletePointerFromQuestion(self, aUser, aQuestion: QuestionViewModel) -> QuestionViewModel:
         return await self._repository.DeletePointerFromQuestion(aUser, aQuestion)
 
     async def GetFromTest(self, aTest: TestViewModel) -> List[QuestionViewModel]:
-        return await self._repository.GetFromTest(aTest)
+        return [question.HideAnswer() for question in await self._repository.GetFromTest(aTest)]
 
     def __init__(self):
         self._repository: IQuestionRepository = IQuestionRepository.__subclasses__()[-1]()

@@ -17,13 +17,13 @@ class TestLogic(ITestLogic):
         return await self._repository.Update(aUser, aTest)
 
     async def GetCreated(self, aUser: UserViewModel) -> List[TestViewModel]:
-        return await self._repository.GetCreated(aUser)
+        return [i.HideAnswer() for i in await self._repository.GetCreated(aUser)]
 
     async def GetCompleted(self, aUser: UserViewModel) -> List[TestViewModel]:
-        return await self._repository.GetCompleted(aUser)
+        return [i.HideAnswer() for i in await self._repository.GetCompleted(aUser)]
 
     async def Get(self, aTest: TestViewModel) -> TestViewModel:
-        return await self._repository.Get(aTest)
+        return (await self._repository.Get(aTest)).HideAnswer()
 
     def __init__(self):
         self._repository: ITestRepository = ITestRepository.__subclasses__()[-1]()
