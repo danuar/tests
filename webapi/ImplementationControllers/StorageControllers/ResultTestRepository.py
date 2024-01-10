@@ -132,7 +132,7 @@ class ResultTestRepository(IResultTestRepository, AbstractDbRepository):
             question = questions[answer.question.id]
             if test.completion_time is None and answer.complition_time > question.complition_time:
                 continue  # Превышено время ответа на вопрос
-            if question.question_input_answer:
+            if question.question_input_answer and answer.text_answer:
                 ratio = question.question_input_answer.k_misspell
                 result_ratio = difflib.SequenceMatcher(None, answer.text_answer,
                                                        question.question_input_answer.correct_answer, True).ratio()

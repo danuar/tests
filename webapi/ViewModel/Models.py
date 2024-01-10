@@ -45,6 +45,10 @@ class AnswerTestViewModel(AbstractModelView):
     def CanBeUpdated(self) -> Validator:
         pass
 
+    def HideAnswer(self):
+        delattr(self, 'is_correct')
+        return self
+
     @classmethod
     def CreateInQuestion(cls, text, is_correct):
         return AnswerTestViewModel(None, None, text, is_correct, [])
@@ -223,7 +227,7 @@ class QuestionChoiceViewModel(QuestionViewModel):
     def HideAnswer(self):
         super().HideAnswer()
         if hasattr(self, 'answers_test'):
-            delattr(self, 'answers_test')
+            [answer.HideAnswer() for answer in self.answers_test]
         return self
 
     def __init__(self, id_, name, complition_time, pointer, test,

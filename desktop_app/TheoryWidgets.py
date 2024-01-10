@@ -146,7 +146,7 @@ class TheoryTabWidget(QWidget):
         if updated_theory is not None:
             self.name_theory.setText(updated_theory.name)
             if updated_theory.study_time is not None:
-                self.study_time.setValue(updated_theory.study_time.minute)
+                self.study_time.setValue(updated_theory.study_time.hour * 60 + updated_theory.study_time.minute)
 
     @staticmethod
     def _check_text(text: str) -> bool:
