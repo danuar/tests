@@ -30,8 +30,8 @@ class TheoryController(AbstractController):
         ))
 
     @get("/theory")
-    async def get_theory_by_id(self, aId: uuid.UUID) -> TheoryViewModel:
-        return await self._logic.Get(TheoryViewModel.GetFromId(aId))
+    async def get_theory_by_id(self, aId: uuid.UUID, get_content: bool = False) -> TheoryViewModel:
+        return await self._logic.Get(TheoryViewModel.GetFromId(aId), get_content)
 
     @get("/pdf")
     async def get_theory_in_format_pdf(self, aId: uuid.UUID):

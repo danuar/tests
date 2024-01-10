@@ -19,7 +19,7 @@ class ITheoryLogic(object):
         pass
 
     @abstractmethod
-    async def Get(self, aTheory: TheoryViewModel) -> TheoryViewModel:
+    async def Get(self, aTheory: TheoryViewModel, get_content: bool) -> TheoryViewModel:
         pass
 
     @abstractmethod

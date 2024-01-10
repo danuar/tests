@@ -25,8 +25,13 @@ class TheoryLogic(ITheoryLogic):
     async def Update(self, user: UserViewModel, aTheory: TheoryViewModel) -> TheoryViewModel:
         return await self._repository.Update(user, aTheory)
 
-    async def Get(self, aTheory: TheoryViewModel) -> TheoryViewModel:
-        return await self._repository.Get(aTheory)
+    async def Get(self, aTheory: TheoryViewModel, get_content: bool) -> TheoryViewModel:
+        theory = await self._repository.Get(aTheory)
+        if not get_content:
+            return theory
+        for chapter in theory.chapters:
+            chapter.content = (await self.chapter_logic.GetContentByChapter(chapter, False))[0].content
+        return theory
 
     async def GetAllFromUser(self, user: UserViewModel, get_content: bool) -> List[TheoryViewModel]:
         theories = await self._repository.GetAllFromUser(user)
