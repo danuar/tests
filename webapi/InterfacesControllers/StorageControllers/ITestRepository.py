@@ -33,3 +33,7 @@ class ITestRepository(object):
     @abstractmethod
     async def GetAvailableCountAttempts(self, aUser: UserViewModel, aTest: TestViewModel) -> int:
         pass
+
+    @abstractmethod
+    async def GetAvailableTests(self, aUser):
+        pass

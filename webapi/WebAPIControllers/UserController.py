@@ -8,12 +8,13 @@ from webapi.InterfacesControllers.BusinessLogicControllers.IUserLogic import IUs
 from webapi.SchemasModel import UserSchema
 from .AbstractController import AbstractController
 from .DefineDepends import get_user
+from ..SchemasModel.ResponseModels import UserResponseSchema
 
 
 class UserController(AbstractController):
 
     @get("/")
-    async def Authorize(self, user=Depends(get_user)) -> UserSchema:
+    async def Authorize(self, user=Depends(get_user)) -> UserResponseSchema:
         return user
 
     def __init__(self):

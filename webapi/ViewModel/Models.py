@@ -46,7 +46,8 @@ class AnswerTestViewModel(AbstractModelView):
         pass
 
     def HideAnswer(self):
-        delattr(self, 'is_correct')
+        if hasattr(self, 'is_correct'):
+            delattr(self, 'is_correct')
         return self
 
     @classmethod

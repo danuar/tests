@@ -33,3 +33,7 @@ class ITestLogic(object):
     @abstractmethod
     async def GetAvailableCountAttempts(self, aUser: UserViewModel, aTest: TestViewModel) -> TestViewModel:
         pass
+
+    @abstractmethod
+    def GetAvailableTests(self, aUser: UserViewModel):
+        pass

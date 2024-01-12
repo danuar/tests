@@ -7,6 +7,9 @@ from webapi.ViewModel import TestViewModel, UserViewModel
 
 
 class TestLogic(ITestLogic):
+    async def GetAvailableTests(self, aUser: UserViewModel):
+        return await self._repository.GetAvailableTests(aUser)
+
     async def GetAvailableCountAttempts(self, aUser: UserViewModel, aTest: TestViewModel) -> int:
         return await self._repository.GetAvailableCountAttempts(aUser, aTest)
 

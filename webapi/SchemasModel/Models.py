@@ -3,7 +3,7 @@ import datetime
 import uuid
 from typing import Optional, Union, Type
 
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, Field, root_validator, model_validator
 
 from webapi.ViewModel import TheoryViewModel, ChapterTheoryViewModel, QuestionChoiceViewModel, \
     QuestionViewModel, AnswerTestViewModel, QuestionInputAnswerViewModel, TestViewModel, PointerToAnswerViewModel, \
@@ -46,7 +46,7 @@ class PointerToAnswerSchema(BaseModel):
     chapter: Union[uuid.UUID, ChapterTheorySchema]
 
     @classmethod
-    @root_validator
+    @model_validator(mode='before')
     def name_must_contain_space(cls, values):
         start = values.get('start')
         end = values.get('end')
@@ -161,7 +161,7 @@ class AnswerForCurrentQuestionSchema(BaseModel):
     answers: Optional[list[uuid.UUID]]
 
     @classmethod
-    @root_validator
+    @model_validator(mode='before')
     def any_answer(cls, values):
         text = values.get('text_answer')
         answers = values.get('answers')

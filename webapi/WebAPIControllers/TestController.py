@@ -25,12 +25,16 @@ class TestController(AbstractController):
                                         .AddQuestions([i.GetViewModel() for i in aTest.questions]))
 
     @get("/created_test")
-    async def get_created_test(self, user=Depends(get_user)) -> List[TestViewModel]:
+    async def get_created_tests(self, user=Depends(get_user)) -> List[TestViewModel]:
         return await self._logic.GetCreated(user)
 
     @get("/completed_test")
-    async def get_completed_test(self, user=Depends(get_user)) -> List[TestViewModel]:
+    async def get_completed_tests(self, user=Depends(get_user)) -> List[TestViewModel]:
         return await self._logic.GetCompleted(user)
+
+    @get("/available_test")
+    async def get_available_tests(self, user=Depends(get_user)) -> List[TestViewModel]:
+        return await self._logic.GetAvailableTests(user)
 
     @get("/test")
     async def get_test_by_id(self, aId: uuid.UUID) -> TestViewModel:

@@ -3,6 +3,7 @@ import logging
 from typing import Optional
 
 from fastapi import Response, Request, Cookie
+from pydantic import IPvAnyAddress
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse
 
@@ -32,11 +33,15 @@ async def get_async_session() -> AsyncSession:
 async def get_user(request: Request,
                    response: Response,
                    user_agent: Optional[str] = None,
+                   ip_address: Optional[IPvAnyAddress] = None,
                    token: Optional[str] = Cookie(default=None)) -> Optional[UserViewModel]:
     logic = get_user_logic()
     user = await logic.GetFromSession(token)
     if user is None:
-        int_ipaddress = int(ipaddress.ip_address(request.client.host))
+        if ip_address:
+            int_ipaddress = int(ipaddress.ip_address(ip_address))
+        else:
+            int_ipaddress = int(ipaddress.ip_address(request.client.host))
         try:
             user = await logic.RegisterOrAuthorize(UserViewModel.Create(int_ipaddress, user_agent))
         except Exception:

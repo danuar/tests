@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
-from operator import and_
+from operator import and_, or_
 from typing import List
 
 from sqlalchemy import update, select, func
@@ -16,6 +16,12 @@ _cached_service: ICachedService = ICachedService.__subclasses__()[-1]()
 
 
 class TestRepository(ITestRepository, AbstractDbRepository):
+
+    async def GetAvailableTests(self, aUser):
+        result: Result = (await self.session.execute(select(Test)
+                                                     .where(or_(ResultTest.user_id == aUser.id, Test.creator_id == aUser.id))
+                                                     .options(*self.get_options(), selectinload(Test.results_tests))))
+        return [i.GetViewModel(load_user=False) for i in result.unique().scalars()]
 
     def __init__(self):
         super().__init__()
