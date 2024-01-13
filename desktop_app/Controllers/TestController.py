@@ -13,6 +13,9 @@ class TestController:
     def get_completed_test(self):
         return self.client.get('/completed_test', Test)
 
+    def get_available_test(self):
+        return self.client.get('/available_test', Test)
+
     def get_created_test(self):
         return self.client.get('/created_test', Test)
 

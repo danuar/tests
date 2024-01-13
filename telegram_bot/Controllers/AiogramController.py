@@ -10,7 +10,7 @@ class AiogramController(AsyncHttpClientController):
     async def handle_exception(self, e: BaseException, url: str, method: str, ResponseType: Type, request_body=None,
                                **query_params):
         if self.chat_id is None or self.bot is None:
-            raise Exception("Not filled attribute chat_id or bot")
+            raise e
         await self.bot.send_message(self.chat_id, f"""Возникла ошибка при запросе к серверу.
         Exception: *{e}*.
         URL: *{url}*.

@@ -854,7 +854,9 @@ class ViewResultsTests(QTableWidget):
 
     def upd(self):
         self.results_tests = []
-        self.current_test_widget = None
+        self.verify_widget = None
+        self.setSortingEnabled(False)
+        self.setSortingEnabled(True)
         self.setMinimumWidth(600)
 
         if self.view_created_tests:
@@ -882,6 +884,9 @@ class ViewResultsTests(QTableWidget):
         self.update_data()
 
     def update_data(self):
+        order = self.horizontalHeader().sortIndicatorOrder()
+        section = self.horizontalHeader().sortIndicatorSection()
+        self.setSortingEnabled(False)
         self.setRowCount(0)
         if self.view_created_tests:
             self.results_tests = list(reversed(list(ResultTestController().get_result_test_by_created_test_in_easy_format())))
@@ -890,6 +895,8 @@ class ViewResultsTests(QTableWidget):
         for row, result_test in enumerate(self.results_tests):
             self.insertRow(row)
             self.update_row(row, result_test)
+        self.setSortingEnabled(True)
+        self.horizontalHeader().setSortIndicator(section, order)
 
     def update_row(self, row, result_test: ResultTestEasy):
         self.removeCellWidget(row, 7)
@@ -910,21 +917,20 @@ class ViewResultsTests(QTableWidget):
         self.setItem(row, 5, QTableWidgetItem(f"{result_test.complition_time}"))
         self.setItem(row, 6, QTableWidgetItem(result_test.note))
 
-        if result_test.checked:
-            if self.view_created_tests:
-                item = QWidget()
-                layout = QHBoxLayout(item)
-                layout.setContentsMargins(0, 0, 0, 0)
-                btn = QPushButton("Проверить")
-                btn.setStyleSheet("padding: 2px;")
-                btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-                btn.row = row
-                btn.clicked.connect(self.open_questions_not_check)
-                layout.addWidget(btn)
-                self.setItem(row, 7, QTableWidgetItem("Не проверено"))
-                self.setCellWidget(row, 7, item)
-            else:
-                self.setItem(row, 7, QTableWidgetItem("Не проверено"))
+        if result_test.checked and self.view_created_tests:
+            item = QWidget()
+            layout = QHBoxLayout(item)
+            layout.setContentsMargins(0, 0, 0, 0)
+            btn = QPushButton("Проверить")
+            btn.setStyleSheet("padding: 2px;")
+            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            btn.row = row
+            btn.clicked.connect(self.open_questions_not_check)
+            layout.addWidget(btn)
+            self.setItem(row, 7, QTableWidgetItem("Не проверено"))
+            self.setCellWidget(row, 7, item)
+        elif result_test.checked:
+            self.setItem(row, 7, QTableWidgetItem("Не проверено"))
         else:
             self.setItem(row, 7, QTableWidgetItem("Проверено"))
 
@@ -1153,7 +1159,7 @@ class MainWindow(QWidget):
 
     def update_tests(self):
         prev_tests = set(test.id for test in self.tests)
-        self.tests.extend(i for i in TestController().get_completed_test() if i.id not in prev_tests)
+        self.tests.extend(i for i in TestController().get_available_test() if i.id not in prev_tests)
         if len(prev_tests) == len(self.tests) and self.menu_run_test.actions():
             return
         self.menu_run_test.clear()

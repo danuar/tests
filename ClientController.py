@@ -66,10 +66,10 @@ class AsyncHttpClientController(BaseClientController, metaclass=abc.ABCMeta):
 
     def __init__(self, user_agent: Optional[str] = None):
         super().__init__(user_agent)
-        if self.__class__.instance is not None:
+        if self.__class__.instance is not None and isinstance(self.session, aiohttp.ClientSession):
             return
-        self.__class__.instance = self
         self.session = aiohttp.ClientSession()
+        self.__class__.instance = self
 
     async def get(self, url: str, ResponseType: Type[T], **query_params):
         return await self.request(url, "get", ResponseType, **query_params)
@@ -95,8 +95,7 @@ class AsyncHttpClientController(BaseClientController, metaclass=abc.ABCMeta):
         t0 = time.perf_counter()
         if request_body is not None and not isinstance(request_body, dict):
             request_body = jsonpickle.encode(request_body)
-        async with self.session.request(method, self.url + url, json=request_body,
-                                        params=query_params) as response:
+        async with self.session.request(method, self.url + url, json=request_body, params=query_params) as response:
             res = await response.text()
             res = json.loads(res, object_hook=self._parse_value)
             if response.status != 200:

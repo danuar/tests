@@ -20,15 +20,12 @@ class UserRepository(IUserRepository, AbstractDbRepository):
 
     async def RegisterOrAuthorize(self, aUser: UserViewModel) -> UserViewModel:
         aUser.CanBeCreated().raiseValidateException()
-        user = User.CreateFrom(aUser)
-        try:
+        user = await self.Get(aUser)
+        if user is None:
+            user = User.CreateFrom(aUser)
             self.session.add(user)
             await self.session.commit()
-        except IntegrityError as e:
-            await self.session.rollback()
-            user = await self.Get(UserViewModel.Create(aUser.ipaddress, aUser.user_agent))
-            if user is None:
-                raise e
+            user = user.GetViewModel()
         user.SetToken(user.id)
         self.cachedService.Set(f"User.Token.{user.token}", user)
         return user
