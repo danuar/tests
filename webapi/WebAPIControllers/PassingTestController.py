@@ -21,11 +21,11 @@ class PassingTestController(AbstractController):
         return logic.get_current_question(user)
 
     @post("/answer")
-    def send_answer_for_current_question(self, answer: AnswerForCurrentQuestionSchema, user=Depends(get_user),
-                                         logic=Depends(get_passing_test_logic)):
+    async def send_answer_for_current_question(self, answer: AnswerForCurrentQuestionSchema, user=Depends(get_user),
+                                         logic=Depends(get_passing_test_logic), auto_complete: bool = True):
         answervm = (AnswerViewModel.CreateForPassintTest(answer.text_answer)
                     .AddAnswersTests([AnswerTestViewModel.FromId(i) for i in answer.answers]))
-        logic.add_answer_in_result(user, answervm)
+        await logic.add_answer_in_result(user, answervm, auto_complete)
         return "Ответ успешно добавлен"
 
     @post("/end_test")

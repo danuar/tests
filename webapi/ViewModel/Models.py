@@ -475,6 +475,10 @@ class StatePassingTestViewModel:
         self._check_completed_result_test()
         answer.question = self.current_question
         answer.complition_time = self.current_complition_time
+        if isinstance(answer.question, QuestionChoiceViewModel):
+            answer.text_answer = None
+        else:
+            answer.answers_test = []
         self.__result_test.answers.append(answer)
         self.start_datetime = datetime.datetime.now()
         self.number_current_question += 1
@@ -485,12 +489,16 @@ class StatePassingTestViewModel:
 
     @property
     def current_complition_time(self):
-        return datetime.datetime.now() - self.start_datetime
+        return (datetime.datetime.min + (datetime.datetime.now() - self.start_datetime)).time()
 
     @property
     def current_question(self):
         self._check_completed_result_test()
-        return self.questions[self._number_current_question]
+        q = self.questions[self._number_current_question].HideAnswer()
+        if q.complition_time is None and q.test:
+            q.complition_time = q.test.complition_time
+        q.number_current_question = self.number_current_question
+        return q
 
     @property
     def number_current_question(self):
@@ -500,7 +508,8 @@ class StatePassingTestViewModel:
     def number_current_question(self, value: int):
         if 0 < value <= len(self.questions):
             self._number_current_question = value - 1
-        raise Exception("Установлено некорректный номер вопроса")
+        else:
+            raise Exception("Установлено некорректный номер вопроса")
 
     def _check_completed_result_test(self):
         if self.__result_test.completed_date is not None or self.__completed:
@@ -509,7 +518,7 @@ class StatePassingTestViewModel:
     def GetViewModel(self) -> dict:
         return {"answers": self.__result_test.answers,
                 "current_question": self.current_question.HideAnswer(),
-                "test": self.__result_test.test}
+                "test": self.__result_test.test.HideAnswer()}
 
 
 @dataclass

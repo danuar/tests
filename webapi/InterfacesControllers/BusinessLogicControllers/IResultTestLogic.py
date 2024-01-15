@@ -3,7 +3,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
-from webapi.InterfacesControllers.StorageControllers import IResultTestRepository
+from webapi.InterfacesControllers.StorageControllers import IResultTestRepository, ITestRepository
 from webapi.ViewModel import ResultTestViewModel, UserViewModel, ResultTestEasyViewModel
 
 
@@ -47,5 +47,6 @@ class IResultTestLogic(object):
     async def GetFromUserInEasyFormat(self, user: UserViewModel) -> list[ResultTestEasyViewModel]:
         pass
 
-    def __init__(self, repository: IResultTestRepository):
+    def __init__(self, repository: IResultTestRepository, test_repository: ITestRepository):
         self._repository = repository
+        self._test_repository = test_repository

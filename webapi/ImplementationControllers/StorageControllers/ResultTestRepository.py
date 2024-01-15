@@ -59,7 +59,7 @@ class ResultTestRepository(IResultTestRepository, AbstractDbRepository):
 
     async def _complete_result_test(self, delay, result: ResultTest):
         await asyncio.sleep(delay)
-        async with DbSession().session().begin() as transaction:
+        async with DbSession.get_session_maker()().begin() as transaction:
             await transaction.session.execute(update(ResultTest)
                                               .where(ResultTest.id == result.id)
                                               .values(completed_date=datetime.datetime.now()))

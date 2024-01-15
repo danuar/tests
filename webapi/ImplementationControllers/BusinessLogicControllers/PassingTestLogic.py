@@ -21,8 +21,13 @@ class PassingTestLogic(IPassingTestLogic):
     def get_current_question(self, user: UserViewModel) -> QuestionViewModel:
         return self._get_state_passing_test_from_user(user.id).current_question
 
-    def add_answer_in_result(self, user: UserViewModel, answer: AnswerViewModel):
-        return self._get_state_passing_test_from_user(user.id).add_answer(answer)
+    async def add_answer_in_result(self, user: UserViewModel, answer: AnswerViewModel, auto_complete: bool):
+        passing_test = self._get_state_passing_test_from_user(user.id)
+        try:
+            return passing_test.add_answer(answer)
+        except Exception as e:
+            if auto_complete:
+                await self._logic.CompleteTest(user, passing_test.complete_test())
 
     async def complete_test(self, user: UserViewModel) -> ResultTestViewModel:
         result_test = self._get_state_passing_test_from_user(user.id).complete_test()

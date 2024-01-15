@@ -1,7 +1,8 @@
 import uuid
 from abc import ABCMeta, abstractmethod
 
-from webapi.InterfacesControllers.StorageControllers import IResultTestRepository
+from webapi.InterfacesControllers.BusinessLogicControllers import IResultTestLogic
+from webapi.InterfacesControllers.StorageControllers import IResultTestRepository, ICachedService
 from webapi.ViewModel import AnswerViewModel, UserViewModel, QuestionViewModel, ResultTestViewModel, \
     StatePassingTestViewModel
 
@@ -17,12 +18,13 @@ class IPassingTestLogic(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def add_answer_in_result(self, user: UserViewModel, answer: AnswerViewModel):
+    async def add_answer_in_result(self, user: UserViewModel, answer: AnswerViewModel, auto_complete: bool):
         pass
 
     @abstractmethod
     async def complete_test(self, user: UserViewModel) -> ResultTestViewModel:
         pass
 
-    def __init__(self, repository: IResultTestRepository):
-        self._repository = repository
+    def __init__(self, logic: IResultTestLogic):
+        self._logic = logic
+        self._cache_service = ICachedService.__subclasses__()[-1]()

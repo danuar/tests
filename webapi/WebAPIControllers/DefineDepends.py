@@ -61,12 +61,12 @@ def get_question_logic(session=Depends(get_db_session)) -> IQuestionLogic:
 
 def get_result_test_logic(session=Depends(get_db_session)) -> IResultTestLogic:
     repository = IResultTestRepository.__subclasses__()[-1](session)
-    yield IResultTestLogic.__subclasses__()[-1](repository)
+    test_repository = ITestRepository.__subclasses__()[-1](session)
+    yield IResultTestLogic.__subclasses__()[-1](repository, test_repository)
 
 
-def get_passing_test_logic(session=Depends(get_db_session)) -> IPassingTestLogic:
-    repository = IResultTestRepository.__subclasses__()[-1](session)
-    yield IPassingTestLogic.__subclasses__()[-1](repository)
+def get_passing_test_logic(logic=Depends(get_result_test_logic)) -> IPassingTestLogic:
+    yield IPassingTestLogic.__subclasses__()[-1](logic)
 
 
 async def get_user(request: Request,
