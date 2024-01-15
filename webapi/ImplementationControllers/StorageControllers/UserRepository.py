@@ -13,15 +13,12 @@ from webapi.db.DbSession import DbSession
 
 
 class UserRepository(IUserRepository, AbstractDbRepository):
-    def __init__(self):
-        super().__init__()
-        self.cachedService: ICachedService = ICachedService.__subclasses__()[-1]()
-        self.session = DbSession().async_session
-
     async def RegisterOrAuthorize(self, aUser: UserViewModel) -> UserViewModel:
         aUser.CanBeCreated().raiseValidateException()
         user = await self.Get(aUser)
         if user is None:
+            if aUser.user_agent is None:
+                raise Exception("New user must have filled user_agent")
             user = User.CreateFrom(aUser)
             self.session.add(user)
             await self.session.commit()

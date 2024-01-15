@@ -7,9 +7,6 @@ from webapi.ViewModel import UserViewModel, AnswerViewModel, ResultTestViewModel
 
 
 class PassingTestLogic(IPassingTestLogic):
-    def __init__(self):
-        self._cache_service: ICachedService = ICachedService.__subclasses__()[-1]()
-        self._logic: IResultTestLogic = IResultTestLogic.__subclasses__()[-1]()
 
     async def start_passing_test(self, user: UserViewModel, test_id: uuid.UUID) -> StatePassingTestViewModel:
         state_passing: StatePassingTestViewModel = self._cache_service.TryGet(f"StatePassingTest.{user.id}")

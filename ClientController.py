@@ -2,6 +2,7 @@ import abc
 import datetime
 import json
 import logging
+import sys
 import time
 import uuid
 from typing import Type, Optional, TypeVar
@@ -86,12 +87,14 @@ class AsyncHttpClientController(BaseClientController, metaclass=abc.ABCMeta):
     async def request(self, url: str, method: str, ResponseType: Type[T], *, request_body=None, **query_params):
         try:
             return await self._request(url, method, ResponseType, request_body=request_body, **query_params)
-        except BaseException as e:
-            await self.handle_exception(e, self.url + url, method, ResponseType, request_body, **query_params)
+        except:
+            await self.handle_exception(sys.exc_info()[0], self.url + url, method, ResponseType, request_body, **query_params)
 
     async def _request(self, url: str, method: str, ResponseType: Type[T], *, request_body=None, **query_params):
         if self.user_agent is not None:
             query_params['user_agent'] = self.user_agent
+        if self.ip_address is not None:
+            query_params['ip_address'] = self.ip_address
         t0 = time.perf_counter()
         if request_body is not None and not isinstance(request_body, dict):
             request_body = jsonpickle.encode(request_body)

@@ -3,6 +3,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
+from ..StorageControllers.IQuestionRepository import IQuestionRepository
 from webapi.ViewModel import QuestionViewModel, TestViewModel
 
 
@@ -33,3 +34,6 @@ class IQuestionLogic(object):
     @abstractmethod
     async def GetFromTest(self, aTest: TestViewModel) -> List[QuestionViewModel]:
         pass
+
+    def __init__(self, repository: IQuestionRepository):
+        self._repository = repository

@@ -61,7 +61,3 @@ class ChapterLogic(IChapterLogic):
             return chapter
         await self.SaveContentInFile(chapter)
         return chapter
-
-    def __init__(self):
-        self._repository: IChapterRepository = IChapterRepository.__subclasses__()[-1]()
-        self._theory_repository: ITheoryRepository = ITheoryRepository.__subclasses__()[-1]()

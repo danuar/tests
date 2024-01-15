@@ -3,6 +3,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
+from webapi.InterfacesControllers.StorageControllers import ITestRepository
 from webapi.ViewModel import TestViewModel, UserViewModel
 
 
@@ -37,3 +38,6 @@ class ITestLogic(object):
     @abstractmethod
     def GetAvailableTests(self, aUser: UserViewModel):
         pass
+
+    def __init__(self, repository: ITestRepository):
+        self._repository = repository

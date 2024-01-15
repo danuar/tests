@@ -15,6 +15,3 @@ class UserLogic(IUserLogic):
 
     async def GetFromSession(self, aToken: str) -> UserViewModel:
         return await self._repository.GetFromSessionToken(aToken)
-
-    def __init__(self):
-        self._repository: IUserRepository = IUserRepository.__subclasses__()[-1]()

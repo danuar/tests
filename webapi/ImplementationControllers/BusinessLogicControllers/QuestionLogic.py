@@ -24,6 +24,3 @@ class QuestionLogic(IQuestionLogic):
 
     async def GetFromTest(self, aTest: TestViewModel) -> List[QuestionViewModel]:
         return [question.HideAnswer() for question in await self._repository.GetFromTest(aTest)]
-
-    def __init__(self):
-        self._repository: IQuestionRepository = IQuestionRepository.__subclasses__()[-1]()

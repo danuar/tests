@@ -3,6 +3,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
+from webapi.InterfacesControllers.StorageControllers.ITheoryRepository import ITheoryRepository
 from webapi.ViewModel import TheoryViewModel, UserViewModel
 
 
@@ -29,3 +30,7 @@ class ITheoryLogic(object):
     @abstractmethod
     async def MergeChaptersToPdf(self, aTheory: TheoryViewModel, aPath=None) -> str:
         pass
+
+    def __init__(self, repository: ITheoryRepository, chapter_logic):
+        self._repository = repository
+        self.chapter_logic = chapter_logic

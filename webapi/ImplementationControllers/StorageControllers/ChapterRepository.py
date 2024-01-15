@@ -11,12 +11,6 @@ from webapi.db import DbSession, ChapterTheory
 
 
 class ChapterRepository(IChapterRepository, AbstractDbRepository):
-
-    def __init__(self):
-        super().__init__()
-        self.cachedService: ICachedService = ICachedService.__subclasses__()[-1]()
-        self.session = DbSession().async_session
-
     async def Create(self, aChapter: ChapterTheoryViewModel) -> ChapterTheoryViewModel:
         aChapter.CanBeCreated().raiseValidateException()
         chapter: ChapterTheory = ChapterTheory.CreateFrom(aChapter)

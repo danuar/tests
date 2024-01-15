@@ -28,7 +28,8 @@ from solve_resource_one_exe import resource_path
 def sum_time(times: list[datetime.time]):
     try:
         return reduce(operator.add,
-                      (datetime.timedelta(hours=i.hour, minutes=i.minute, seconds=i.second) for i in map(cast_to_time, times)))
+                      (datetime.timedelta(hours=i.hour, minutes=i.minute, seconds=i.second) for i in
+                       map(cast_to_time, times)))
     except TypeError:
         return 0
 
@@ -343,7 +344,12 @@ class RunTestWidget(QDialog):
         txt = ""
         if test.theory.study_time:
             txt = f". Примерное время изучения {test.theory.study_time.minute + test.theory.study_time.hour} мин."
-        btn_get_theory = QPushButton(f"Изучить теорию {test.theory.name}{txt}")
+        btn_get_theory = QPushButton()
+        label = QLabel(f"Изучить теорию {test.theory.name}{txt}")
+        label.setWordWrap(True)
+        label.setStyleSheet("color: white")
+        l = QHBoxLayout(btn_get_theory)
+        l.addWidget(label)
         btn_get_theory.clicked.connect(self.on_get_theory_clicked)
         btn_get_theory.setMaximumSize(600, 100)
         btn_get_theory.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
@@ -353,7 +359,7 @@ class RunTestWidget(QDialog):
         btn_running_test.setMaximumSize(600, 100)
         btn_running_test.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        t = self._get_seconds(test.complition_time) if test.complition_time \
+        t = test.complition_time if test.complition_time \
             else sum(self._get_seconds(i.complition_time) for i in test.questions)
         self.end_run_time = self.completion_time = t
         txt = "Неограниченное количество попыток"
@@ -372,7 +378,7 @@ class RunTestWidget(QDialog):
             else:
                 txt = "Не осталось попыток"
 
-        label_info = QLabel(f"Тест: {test.name}\nВопросов: {len(test.questions)}\nВремя прохождения: {t} сек.\n{txt}")
+        label_info = QLabel(f"Тест: {test.name}\nВопросов: {len(test.questions)}\nВремя прохождения: {t} \n{txt}")
         label_info.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         button_copy = QPushButton(str(test.id))
         button_copy.setObjectName("link")
@@ -535,7 +541,8 @@ class RunTestWidget(QDialog):
         complition_time = datetime.time(hour=sec // 3600, minute=sec // 60 % 60, second=sec % 60).isoformat()
         answer = Answer(question=question, complition_time=complition_time)
         if isinstance(question, QuestionChoice):
-            answer.answers_test = [str(a.id) for i, a in enumerate(question.answers_test) if self.answers_check_box[i].isChecked()]
+            answer.answers_test = [str(a.id) for i, a in enumerate(question.answers_test) if
+                                   self.answers_check_box[i].isChecked()]
         else:
             answer.text_answer = self.input_answer.text()
         self.result_test.answers.append(answer)
@@ -713,7 +720,8 @@ class ViewResultTest(QWidget):
                    f"Вопросов ожидающих проверки: {len(not_check_questions)}. "
                    f"В баллах {sum(i.weight for i in not_check_questions)}\n"
                    f"Общее время прохождения: {sum_time(i.complition_time for i in result_test.answers)}\n"
-                   f"Когда был пройден тест: {date}"))
+                   f"Когда был пройден тест: {date}\n"
+                   f"Успешно ли пройден тест: {result_test.success}"))
 
         form = QFormLayout()
         self.note_line_edit = QLineEdit(self.result_test.note if self.result_test.note else "")
@@ -773,7 +781,7 @@ class ViewResultTest(QWidget):
     def get_marks(answers: list[Answer]) -> tuple[int, int, int]:
         current_mark = sum(i.mark for i in answers if i.mark)
         all_mark = sum(i.question.weight for i in answers)
-        not_check_mark = sum(i.question.weight for i in answers if i.mark is None)
+        not_check_mark = sum(i.question.weight for i in answers if i.mark is None and isinstance(i.question, QuestionNotCheck))
         return current_mark, all_mark - current_mark - not_check_mark, not_check_mark
 
     def create_bar(self, anim: QChart.AnimationOptions = QChart.SeriesAnimations):
@@ -889,7 +897,8 @@ class ViewResultsTests(QTableWidget):
         self.setSortingEnabled(False)
         self.setRowCount(0)
         if self.view_created_tests:
-            self.results_tests = list(reversed(list(ResultTestController().get_result_test_by_created_test_in_easy_format())))
+            self.results_tests = list(
+                reversed(list(ResultTestController().get_result_test_by_created_test_in_easy_format())))
         else:
             self.results_tests = list(reversed(list(ResultTestController().get_result_test_by_user_in_easy_format())))
         for row, result_test in enumerate(self.results_tests):

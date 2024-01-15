@@ -95,6 +95,7 @@ class ResultTest:
     note: Optional[str] = None
     id: UUID = None
     user: 'User' = None
+    success: bool = False
 
 
 @dataclass

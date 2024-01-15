@@ -19,7 +19,7 @@ API_URL = f"http://{API_HOST}:{API_PORT}"
 
 TELEGRAM_API_TOKEN = '6249747949:AAGUd3hCVyf0VGyvo_ChKOjnJiCqVwsrYU8'
 
-"""
+"""4
 exefile: pyinstaller --noconfirm --onedir --windowed --icon "C:/Users/danua/PycharmProjects/tests/desktop_app/resource/app_icon.ico" --log-level "WARN" --add-data "C:/Users/danua/PycharmProjects/tests/desktop_app;."  "C:/Users/danua/PycharmProjects/tests/desktop_app/run.py"
 database: alembic upgrade head
 """

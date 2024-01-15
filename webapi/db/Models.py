@@ -142,7 +142,7 @@ class ResultTest(BaseModel):
         return ResultTestViewModel(self.id, self.user.GetViewModel() if 'user' in self.__dict__ else UserViewModel.Update(self.user_id),
                                    self.test.GetViewModel(load_user=False, load_theory=True, load_questions=True) if 'test' in self.__dict__ else None,
                                    [i.GetViewModel() for i in self.answers] if 'answers' in self.__dict__ else None,
-                                   self.start_date, self.completed_date, self.note)
+                                   self.start_date, self.completed_date, self.note).setSuccess()
 
     @staticmethod
     def CreateFrom(rt: ResultTestViewModel):

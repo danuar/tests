@@ -45,11 +45,6 @@ class ResultTestRepository(IResultTestRepository, AbstractDbRepository):
                                         i.note,
                                         any(j.mark is None for j in i.answers)) for i in result.unique().scalars()]
 
-    def __init__(self):
-        super().__init__()
-        self.cachedService: ICachedService = ICachedService.__subclasses__()[-1]()
-        self.session = DbSession().async_session
-
     async def Create(self, aResult: ResultTestViewModel) -> ResultTestViewModel:
         result = ResultTest.CreateFrom(aResult)
         self.session.add(result)

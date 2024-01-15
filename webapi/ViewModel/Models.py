@@ -276,6 +276,15 @@ class ResultTestViewModel(AbstractModelView):
     def GetById(aId: uuid.UUID):
         return ResultTestViewModel(aId, None, None, [], None, None, None)
 
+    def setSuccess(self):
+        if self.test is None or self.test.questions is None or self.answers is None:
+            return False
+        mark = sum(i.mark for i in self.answers if i.mark)
+        all_mark = sum(i.weight for i in self.test.questions)
+        if all_mark != 0:
+            self.success = mark / all_mark > 0.6
+        return self
+
     def CanBeCreated(self) -> Validator:
         pass
 

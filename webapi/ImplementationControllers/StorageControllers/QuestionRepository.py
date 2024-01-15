@@ -12,12 +12,6 @@ from webapi.db import DbSession, Question, PointerToAnswer
 
 
 class QuestionRepository(IQuestionRepository, AbstractDbRepository):
-    def __init__(self):
-        super().__init__()
-        self.cachedService: ICachedService = ICachedService.__subclasses__()[-1]()
-        self.user_repository: IUserRepository = IUserRepository.__subclasses__()[-1]()
-        self.session = DbSession().async_session
-
     async def Create(self, user: UserViewModel, aQuestion: QuestionViewModel) -> QuestionViewModel:
         aQuestion.CanBeCreated().raiseValidateException()
         QuestionType = Question.get_type_in_db(aQuestion)

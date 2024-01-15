@@ -15,19 +15,13 @@ from webapi.db import DbSession, Test, ResultTest, Question, QuestionChoice, The
 _cached_service: ICachedService = ICachedService.__subclasses__()[-1]()
 
 
-class TestRepository(ITestRepository, AbstractDbRepository):
+class TestRepository(ITestRepository):
 
     async def GetAvailableTests(self, aUser):
         result: Result = (await self.session.execute(select(Test)
                                                      .where(or_(ResultTest.user_id == aUser.id, Test.creator_id == aUser.id))
                                                      .options(*self.get_options(), selectinload(Test.results_tests))))
         return [i.GetViewModel(load_user=False) for i in result.unique().scalars()]
-
-    def __init__(self):
-        super().__init__()
-        self.cachedService: ICachedService = _cached_service
-        self.user_repository: IUserRepository = IUserRepository.__subclasses__()[-1]()
-        self.session = DbSession().async_session
 
     async def Create(self, aTest: TestViewModel) -> TestViewModel:
         aTest.CanBeCreated().raiseValidateException()
@@ -70,9 +64,11 @@ class TestRepository(ITestRepository, AbstractDbRepository):
 
     async def Get(self, aTest: TestViewModel) -> TestViewModel:
         aTest.CanBeFind().raiseValidateException()
-        return (await self.session.get(Test, aTest.id, options=self.get_options() +
-                                                               [joinedload(Test.theory).joinedload(
-                                                                   Theory.chapters)])).GetViewModel(load_user=False)
+        options = self.get_options() + [joinedload(Test.theory).joinedload(Theory.chapters)]
+        test: Test = await self.session.get(Test, aTest.id, options=options)
+        if test is None:
+            raise Exception(f"Not find test by {aTest.id=}")
+        return test.GetViewModel(load_user=False)
 
     async def GetAvailableCountAttempts(self, aUser: UserViewModel, aTest: TestViewModel) -> int:
         test: TestViewModel = await self.Get(aTest)

@@ -3,10 +3,11 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
+from webapi.InterfacesControllers.StorageControllers.AbstractDbRepository import AbstractDbRepository
 from webapi.ViewModel import QuestionViewModel, TestViewModel, UserViewModel
 
 
-class IQuestionRepository(object):
+class IQuestionRepository(AbstractDbRepository):
     """@Interface"""
     __metaclass__ = ABCMeta
 

@@ -1,6 +1,7 @@
 import asyncio
 import enum
 import io
+import ipaddress
 import locale
 import logging
 import operator
@@ -237,8 +238,8 @@ async def run_test(info: types.CallbackQuery):
                                                       "Переходим к следующему")
             continue
     result_test.completed_date = datetime.datetime.now()
-    user.results_tests.append(result_test)
     await ResultTestController().complete_test(result_test.id)
+    user.results_tests.append(await ResultTestController().get_by_id(result_test.id))
     btn = InlineKeyboardButton(text="Посмотреть результат", callback_data="on_view_result" + str(result_test.id))
     await bot.send_message(info.from_user.id, "Результат теста был успешно сохранен",
                            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn]]))
@@ -249,6 +250,12 @@ async def view_result_test(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
     user = TelegramUser.create(callback_query.from_user.id)
     result_test = await ResultTestController().get_by_id(uuid.UUID(callback_query.data[14:]))
+    sum_mark = all_ = 0
+    for result in user.results_tests:
+        current_mark = sum(j.mark for j in result.answers if j.mark)
+        all_ += sum(i.weight for i in result.test.questions)
+        sum_mark += current_mark
+
     current_mark = sum(i.mark for i in result_test.answers if i.mark)
     all_mark = sum(i.weight for i in result_test.test.questions)
     sum(i.question.weight for i in result_test.answers if i.mark is None)
@@ -268,7 +275,8 @@ async def view_result_test(callback_query: types.CallbackQuery):
               f"Вопросов ожидающих проверки: {len(not_check_questions)}. "
               f"В баллах {sum(i.weight for i in not_check_questions)}\n"
               f"Общее время прохождения: {sum_time([i.complition_time for i in result_test.answers])}\n"
-              f"Когда был пройден тест: {result_test.completed_date:%d %B %Y год %X}")
+              f"Когда был пройден тест: {result_test.completed_date:%d %B %Y год %X}\n"
+              f"Поулчено баллов за все тесты {sum_mark} из {all_}")
 
     labels = ['Отвечено верно', 'Отвечено неверно', 'Непроверенные']
     explode = (0.05, 0.05, 0.05)
@@ -399,7 +407,10 @@ async def initialiaze_controller(
         event = event.event
     if isinstance(event, PollAnswer):
         return await handler(prev_event, data)
-    AiogramController(str(event.message.from_user.id)).set_bot(bot).set_chat_id(event.message.chat.id)
+    (AiogramController(str(event.message.from_user.id))
+     .set_bot(bot)
+     .set_chat_id(event.message.chat.id)
+     .set_ip_address(ipaddress.ip_address(event.message.from_user.id)))
     return await handler(prev_event, data)
 
 

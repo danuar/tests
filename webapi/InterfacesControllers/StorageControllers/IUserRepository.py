@@ -2,10 +2,11 @@
 # -*- coding: UTF-8 -*-
 from abc import ABCMeta, abstractmethod
 
+from webapi.InterfacesControllers.StorageControllers.AbstractDbRepository import AbstractDbRepository
 from webapi.ViewModel import UserViewModel
 
 
-class IUserRepository(object):
+class IUserRepository(AbstractDbRepository):
     """@Interface"""
     __metaclass__ = ABCMeta
 

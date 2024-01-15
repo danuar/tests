@@ -45,7 +45,7 @@ class TheoryLogic(ITheoryLogic):
     async def MergeChaptersToPdf(self, aTheory: TheoryViewModel, aPath=None) -> str:
         if aPath is None:
             aPath = self.path_to_chapters_pdf
-        theory = await self.Get(aTheory)
+        theory = await self.Get(aTheory, False)
         file_name = f"{aPath}{theory.id}.pdf"
         if os.path.exists(file_name):
             return file_name
@@ -58,7 +58,3 @@ class TheoryLogic(ITheoryLogic):
             documentPdf.append_document(documentHtml, aw.ImportFormatMode.KEEP_SOURCE_FORMATTING)
         documentPdf.save(file_name)
         return file_name
-
-    def __init__(self):
-        self._repository: ITheoryRepository = ITheoryRepository.__subclasses__()[-1]()
-        self.chapter_logic = IChapterLogic.__subclasses__()[-1]()

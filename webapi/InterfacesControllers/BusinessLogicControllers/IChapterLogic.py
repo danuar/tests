@@ -3,6 +3,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Union
 
+from ..StorageControllers.IChapterRepository import IChapterRepository
 from webapi.ViewModel import ChapterTheoryViewModel
 
 
@@ -38,3 +39,6 @@ class IChapterLogic(object):
     @abstractmethod
     async def SaveContentInFile(self, aChapter: ChapterTheoryViewModel):
         pass
+
+    def __init__(self, repository: IChapterRepository):
+        self._repository = repository

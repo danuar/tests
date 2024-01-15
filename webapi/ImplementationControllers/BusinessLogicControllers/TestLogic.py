@@ -27,6 +27,3 @@ class TestLogic(ITestLogic):
 
     async def Get(self, aTest: TestViewModel) -> TestViewModel:
         return (await self._repository.Get(aTest)).HideAnswer()
-
-    def __init__(self):
-        self._repository: ITestRepository = ITestRepository.__subclasses__()[-1]()

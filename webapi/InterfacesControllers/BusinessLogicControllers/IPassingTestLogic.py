@@ -1,6 +1,7 @@
 import uuid
 from abc import ABCMeta, abstractmethod
 
+from webapi.InterfacesControllers.StorageControllers import IResultTestRepository
 from webapi.ViewModel import AnswerViewModel, UserViewModel, QuestionViewModel, ResultTestViewModel, \
     StatePassingTestViewModel
 
@@ -22,3 +23,6 @@ class IPassingTestLogic(metaclass=ABCMeta):
     @abstractmethod
     async def complete_test(self, user: UserViewModel) -> ResultTestViewModel:
         pass
+
+    def __init__(self, repository: IResultTestRepository):
+        self._repository = repository

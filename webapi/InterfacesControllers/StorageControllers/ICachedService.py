@@ -3,7 +3,7 @@
 from abc import ABCMeta, abstractmethod
 
 
-class ICachedService(object):
+class ICachedService:
     """@Interface"""
     __metaclass__ = ABCMeta
 

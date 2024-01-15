@@ -38,7 +38,3 @@ class ResultTestLogic(IResultTestLogic):
 
     async def GetFromUserInEasyFormat(self, user: UserViewModel) -> list[ResultTestEasyViewModel]:
         return await self._repository.GetFromUser(user, True)
-
-    def __init__(self):
-        self._repository: IResultTestRepository = IResultTestRepository.__subclasses__()[-1]()
-        self._test_repository: ITestRepository = ITestRepository.__subclasses__()[-1]()
